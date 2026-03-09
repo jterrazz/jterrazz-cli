@@ -1,8 +1,11 @@
-theme = Ayu
-
-window-width = 104
+theme = TokyoNight
+window-padding-x = 16
+window-padding-y = 6
 window-height = 24
-confirm-close-surface = false
+window-width = 100
+split-divider-color = #565f89
+unfocused-split-opacity = 0.6
+unfocused-split-fill = #000000
 
 macos-option-as-alt = left
 

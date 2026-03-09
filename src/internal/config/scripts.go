@@ -70,9 +70,9 @@ var Scripts = []Script{
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "ghostty",
 		CheckFn: func() CheckResult {
-			configPath := os.Getenv("HOME") + "/.config/ghostty/config"
+			configPath := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty/config"
 			if _, err := os.Stat(configPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.config/ghostty/config"}
+				return CheckResult{Installed: true, Detail: "~/Library/Application Support/com.mitchellh.ghostty/config"}
 			}
 			return CheckResult{}
 		},
@@ -235,7 +235,7 @@ func runHushlogin() error {
 func runGhosttyConfig() error {
 	fmt.Println(out.Cyan("Setting up Ghostty config..."))
 
-	configDir := os.Getenv("HOME") + "/.config/ghostty"
+	configDir := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty"
 	configPath := configDir + "/config"
 
 	if err := os.MkdirAll(configDir, 0755); err != nil {
