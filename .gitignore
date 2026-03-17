@@ -1,7 +1,15 @@
-.idea/
-.DS_Store
-.vscode
-.ansible/
+# Build
 j
-.claude
+
+# Test
 tests/e2e/j_test_bin
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Local config
+.claude/

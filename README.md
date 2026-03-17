@@ -1,167 +1,167 @@
-# jterrazz-cli
+# j
 
-A unified CLI tool (`j`) for development workflow automation, plus dotfiles and machine setup.
+A single CLI to bootstrap and manage a macOS development machine — tools, configs, templates, and remote access. No sudo required.
 
-_Hey there – I'm Jean-Baptiste, just another developer doing weird things with code. All my projects live on [jterrazz.com](https://jterrazz.com) – complete with backstories and lessons learned. Feel free to poke around – you might just find something useful!_
+## Install
 
-## Installation
+**Fresh machine** (no Go needed):
 
-```bash
-git clone https://github.com/jterrazz/jterrazz-cli.git
-cd jterrazz-cli
+```sh
+xcode-select --install
+curl -fsSL https://raw.githubusercontent.com/jterrazz/jterrazz-cli/main/install.sh | sh
+source ~/.zshrc
+```
+
+**From source** (requires Go 1.24+):
+
+```sh
+git clone https://github.com/jterrazz/jterrazz-cli.git ~/Developer/jterrazz-cli
+cd ~/Developer/jterrazz-cli
 make install
+source ~/.zshrc
 ```
 
-Requires Go 1.24+. Install Go via `brew install go` if needed. The binary is installed to `/usr/local/bin/j`.
+The binary lives at `~/.jterrazz/bin/j`. All user data goes under `~/.jterrazz/`.
 
-## Usage
+## Commands
 
-```bash
-j help                # Show all commands
-j status              # Show system status (setup, tools, security, resources)
-j setup               # Interactive setup UI
-j install             # List/install tools
-j upgrade --all       # Upgrade available package managers
-j clean --all         # Clean all registered clean targets
+### `j status`
+
+Full-screen TUI showing system state at a glance: setup scripts, security checks, developer identity, 100+ tracked tools with versions, top processes, network info, and disk cache sizes. Everything loads in parallel.
+
+### `j install [tool...]`
+
+```sh
+j install                          # List all tracked tools with status
+j install homebrew go node         # Install specific tools
+j install claude codex ollama rtk  # AI tools
+j install ghostty tmux zed         # Terminal + editor
 ```
 
-### Install (Packages)
+100+ tools across 7 categories (package managers, runtimes, devops, AI, terminal, GUI apps, Mac App Store). Each tool knows its install method (brew, cask, npm, bun, manual), dependencies, version detection, and optional post-install scripts.
 
-```bash
-j install                         # List tracked tools
-j install brew bun go            # Install package managers + runtime
-j install codex claude gemini    # Install AI CLIs
-j install tmux ghostty tailscale # Install terminal + remote stack
-j install orbstack               # Install container runtime (docker CLI compatible)
-j install gh copier              # Install GitHub CLI + copier
+### `j upgrade [package...]`
+
+```sh
+j upgrade --all          # Upgrade all package managers (brew, npm, bun)
+j upgrade --brew         # Upgrade Homebrew only
+j upgrade node claude    # Upgrade specific packages
 ```
 
-### Setup (Configurations)
+### `j clean [item...]`
 
-```bash
-j setup  # Interactive TUI (Skills, Remote, and setup scripts)
+```sh
+j clean --all            # Clean everything (brew cache, docker, multipass, trash)
+j clean docker trash     # Clean specific items
 ```
 
-Setup scripts include terminal (`ghostty`, `tmux`, `hushlogin`), security (`gpg`, `ssh`, `gh`, `dns`, `spotlight-exclude`), editor (`zed`), and system (`java`, dock reset/spacer).
+### `j setup`
 
-### Remote (Tailscale SSH)
+Interactive TUI to run configuration scripts:
 
-```bash
-j remote setup   # Configure remote access in ~/.config/jterrazz/jrc.json
-j remote up      # Start userspace Tailscale, enable SSH, and keep Mac awake
-j remote status  # Show mode/state/IP (+ keep-awake)
-j remote down    # Disconnect and stop userspace daemon
+- **Terminal** — ghostty, tmux, hushlogin
+- **Security** — GPG commit signing, SSH keygen, GitHub CLI auth, encrypted DNS (Quad9), Spotlight exclusion
+- **Editor** — Zed config
+- **System** — JAVA_HOME, dock reset/spacer
+- **Remote** — Tailscale configuration
+- **Skills** — AI skills management
+
+### `j remote`
+
+```sh
+j remote setup    # Configure Tailscale in ~/.jterrazz/config.json
+j remote up       # Connect (userspace mode, SSH enabled, keep-awake)
+j remote down     # Disconnect and stop daemon
+j remote status   # Show connection state
 ```
 
-`remote setup` supports:
-- `mode`: `auto` or `userspace`
-- `auth method`: `oauth` (login URL flow) or `authkey`
+Supports `auto`/`userspace` mode and `oauth`/`authkey` authentication.
 
-### Sync (Project Templates)
+### `j sync`
 
-Sync configuration files across repositories using [Copier](https://github.com/copier-org/copier) templates stored in `dotfiles/blueprints/`.
+Sync project scaffolding across repos using [Copier](https://github.com/copier-org/copier) templates in `dotfiles/blueprints/`.
 
-```bash
-j sync init          # Initialize project from template (auto-detects language)
-j sync               # Update project from its template
-j sync status        # Show template link status
-j sync diff          # Preview changes before updating
-j sync --all         # Update all projects in ~/Developer
+```sh
+j sync init       # Scaffold a project (auto-detects Go/TypeScript)
+j sync            # Pull template updates into current project
+j sync diff       # Preview changes
+j sync --all      # Update all projects in ~/Developer
 ```
 
-**How it works:** Running `j sync init` asks a few questions (language, license, CI, etc.) and generates config files. A `.copier-answers.yml` file is created in the project to track the template version and your answers — commit this file. When templates are updated and tagged, run `j sync` in any linked project to pull the latest changes.
+Templates generate: `.editorconfig`, `.gitignore`, `LICENSE`, CI workflows, Docker/deploy configs, and Claude Code skill files — conditional on language and project type.
 
-**Included templates:** .editorconfig, .gitattributes, .gitignore, LICENSE, plus conditional files for TypeScript (tsconfig, .nvmrc, package.json), Go (go.mod, Makefile, .golangci.yml), CI (GitHub Actions), Docker, and Claude Code skills.
+### `j run`
 
-### Run Commands
-
-```bash
-# Git shortcuts
-j run git feat "message"   # git add . && git commit -m "feat: message"
-j run git fix "message"    # git add . && git commit -m "fix: message"
-j run git chore "message"  # git add . && git commit -m "chore: message"
-j run git push             # git push -u origin HEAD
-j run git sync             # git fetch -p && git pull
-j run git wip              # git add --all && git commit -m "WIP"
-j run git unwip            # Undo last commit and unstage
-
-# Docker
-j run docker rm            # Remove all containers
-j run docker rmi           # Remove all images
-j run docker clean         # docker system prune -af
-j run docker reset         # Remove all containers and images
+```sh
+j run git feat "message"    # git add . && commit "feat: message"
+j run git fix "message"     # git add . && commit "fix: message"
+j run git wip               # git add --all && commit "WIP"
+j run git unwip             # Undo last commit
+j run git push              # Push current branch
+j run git sync              # Fetch + pull
+j run docker reset          # Remove all containers + images
+j run docker clean          # System prune
 ```
 
-### Shell Helpers (Installed via `make install`)
+### Shell shortcuts
 
-`make install` adds `dotfiles/applications/zsh/zshrc.sh` to your `~/.zshrc`.
+Sourced via `dotfiles/applications/zsh/zshrc.sh`:
 
-```bash
-tj   # Join tmux session "main" (creates it if missing)
-tc   # Open Claude in a new tmux window
-to   # Open Codex in a new tmux window
-tg   # Open Gemini in a new tmux window
+| Command | Action |
+|---------|--------|
+| `jj` | Attach tmux session `main` |
+| `jc` | Open Claude in tmux |
+| `jo` | Open Codex in tmux |
+| `jg` | Open Gemini in tmux |
+
+## User data
+
+Everything lives under `~/.jterrazz/`:
+
 ```
-
-Default tmux keymap in this repo:
-- `Alt+a/z/e/r/t/y/u`: select windows `1..7`
-- `Alt+i/p`: previous/next window
-- `Alt+c/d`: new/kill window
-- `Alt+o/l/k/m`: split up/down/left/right
+~/.jterrazz/
+├── bin/           # CLI binary
+├── config.json    # Runtime config (remote settings, future: credentials)
+├── tailscale/     # Userspace daemon state
+└── dns/           # Generated DNS profiles
+```
 
 ## Development
 
-```bash
-make build    # Build binary
-make test     # Run unit tests
-make install  # Build and install to /usr/local/bin/j
+```sh
+make build     # Build ./j
+make test      # Run tests
+make install   # Build + install to ~/.jterrazz/bin
+make check     # Verify installation
 ```
 
-### E2E Tests
+### Releasing
 
-```bash
-go test ./tests/e2e/ -v -timeout 120s           # Run all e2e tests
-go test ./tests/e2e/ -run TestBlueprint -v       # Blueprint tests only
-go test ./tests/e2e/ -run TestBlueprint -args -update  # Regenerate fixtures
+Push a version tag to build and publish binaries via GitHub Actions:
+
+```sh
+git tag v1.0.0
+git push --tags
 ```
 
-Blueprint tests use committed fixtures in `tests/e2e/output/`. Each fixture isolates one feature:
+Builds for `darwin/arm64`, `darwin/amd64`, `linux/arm64`, `linux/amd64`.
 
-| Fixture                 | Tests                                              |
-| ----------------------- | -------------------------------------------------- |
-| `none-mit`              | MIT license, common files                          |
-| `none-proprietary`      | Proprietary license                                |
-| `typescript-none`       | TypeScript language files                          |
-| `typescript-library`    | Library CI + release workflow + architecture skill |
-| `typescript-api`        | App CI + Docker + API architecture skill           |
-| `typescript-web`        | Web architecture skill + Next.js tsconfig          |
-| `typescript-mobile`     | Mobile architecture skill                          |
-| `typescript-api-deploy` | Kubernetes deploy workflow                         |
-| `go-none`               | Go language files                                  |
-| `go-cli`                | Go CI + CLI architecture skill                     |
-| `go-api`                | Go CI + Docker + API architecture skill            |
-
-## Structure
+### Project structure
 
 ```
-.
-├── src/
-│   ├── cmd/j/main.go          # Entry point
-│   └── internal/
-│       ├── commands/           # CLI commands (Cobra)
-│       ├── config/             # Tool/script/command registry
-│       ├── domain/             # Business logic
-│       └── presentation/       # TUI components and views
-├── dotfiles/
-│   ├── applications/           # App configs (Ghostty, tmux, VSCode, Zed, Zsh)
-│   └── blueprints/             # Copier project templates
-│       ├── copier.yml          # Template configuration
-│       └── template/           # Template files
-├── tests/e2e/
-│   ├── blueprint_test.go       # Blueprint snapshot tests
-│   ├── cli_test.go             # CLI command tests
-│   ├── e2e_specification.go    # Shared test framework
-│   └── output/                 # Committed fixture directories
-├── go.mod
-└── Makefile
+src/
+├── cmd/j/main.go            # Entry point
+└── internal/
+    ├── commands/             # CLI commands (Cobra)
+    ├── config/               # Tool, script, and command definitions
+    ├── domain/               # Version parsing, status loading, skills
+    └── presentation/         # TUI views, components, theme
+dotfiles/
+├── applications/             # App configs (ghostty, tmux, zed, zsh)
+└── blueprints/               # Copier project templates
+tests/e2e/                    # End-to-end + blueprint snapshot tests
 ```
+
+## License
+
+MIT
