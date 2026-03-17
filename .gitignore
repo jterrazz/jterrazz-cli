@@ -1,5 +1,5 @@
 # Build
-j
+/j
 
 # Test
 tests/e2e/j_test_bin
