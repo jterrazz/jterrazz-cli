@@ -39,11 +39,6 @@ func runScript(name string) {
 	}
 }
 
-// runSetupItem runs a setup item by name (used by install command for Tool.Scripts)
-func runSetupItem(name string) {
-	runScript(name)
-}
-
 // runSkillsUI runs the skills management UI
 func runSkillsUI() {
 	if !skill.IsInstalled() {

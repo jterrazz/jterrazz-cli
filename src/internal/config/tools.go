@@ -440,6 +440,15 @@ var Tools = []Tool{
 		Category:     CategoryAI,
 		Dependencies: []string{"bun"},
 	},
+	{
+		Name:         "rtk",
+		Command:      "rtk",
+		Formula:      "rtk",
+		Method:       InstallBrewFormula,
+		Category:     CategoryAI,
+		Dependencies: []string{"homebrew"},
+		VersionFn:    tool.VersionFromCmd("rtk", []string{"--version"}, tool.TrimVersion),
+	},
 
 	// ==========================================================================
 	// GUI Apps + desktop tooling

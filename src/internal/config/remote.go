@@ -47,7 +47,7 @@ type RemoteSettings struct {
 	Hostname   string           `json:"hostname,omitempty"`
 }
 
-// JRCConfig is the user runtime config persisted in ~/.config/jterrazz/jrc.json.
+// JRCConfig is the user runtime config persisted in ~/.jterrazz/config.json.
 type JRCConfig struct {
 	Remote RemoteSettings `json:"remote"`
 }
@@ -88,12 +88,17 @@ func normalizeRemoteSettings(s RemoteSettings) RemoteSettings {
 	return s
 }
 
+// jterrazDir returns the root of the unified user data directory.
+func jterrazDir() string {
+	return filepath.Join(os.Getenv("HOME"), ".jterrazz")
+}
+
 func jrcPath() string {
-	return filepath.Join(os.Getenv("HOME"), ".config", "jterrazz", "jrc.json")
+	return filepath.Join(jterrazDir(), "config.json")
 }
 
 func userspaceDir() string {
-	return filepath.Join(os.Getenv("HOME"), ".config", "jterrazz", "tailscale")
+	return filepath.Join(jterrazDir(), "tailscale")
 }
 
 func userspaceSocketPath() string {
@@ -116,8 +121,38 @@ func keepAwakePIDPath() string {
 	return filepath.Join(userspaceDir(), "caffeinate.pid")
 }
 
-// LoadJRC loads ~/.config/jterrazz/jrc.json. Missing file returns defaults.
+// migrateOldConfig moves data from ~/.config/jterrazz/ to ~/.jterrazz/ if needed.
+func migrateOldConfig() {
+	oldDir := filepath.Join(os.Getenv("HOME"), ".config", "jterrazz")
+	newDir := jterrazDir()
+
+	// Migrate config.json
+	oldJRC := filepath.Join(oldDir, "jrc.json")
+	newJRC := jrcPath()
+	if _, err := os.Stat(oldJRC); err == nil {
+		if _, err := os.Stat(newJRC); os.IsNotExist(err) {
+			_ = os.MkdirAll(newDir, 0700)
+			if data, readErr := os.ReadFile(oldJRC); readErr == nil {
+				_ = os.WriteFile(newJRC, data, 0600)
+			}
+		}
+	}
+
+	// Migrate tailscale state
+	oldTS := filepath.Join(oldDir, "tailscale")
+	newTS := userspaceDir()
+	if info, err := os.Stat(oldTS); err == nil && info.IsDir() {
+		if _, err := os.Stat(newTS); os.IsNotExist(err) {
+			_ = os.MkdirAll(newDir, 0700)
+			exec.Command("cp", "-r", oldTS, newTS).Run()
+		}
+	}
+}
+
+// LoadJRC loads ~/.jterrazz/config.json. Missing file returns defaults.
 func LoadJRC() (JRCConfig, error) {
+	migrateOldConfig()
+
 	cfg := JRCConfig{Remote: defaultRemoteSettings()}
 
 	data, err := os.ReadFile(jrcPath())
@@ -125,17 +160,17 @@ func LoadJRC() (JRCConfig, error) {
 		if os.IsNotExist(err) {
 			return cfg, nil
 		}
-		return cfg, fmt.Errorf("failed to read jrc.json: %w", err)
+		return cfg, fmt.Errorf("failed to read config.json: %w", err)
 	}
 
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return cfg, fmt.Errorf("failed to parse jrc.json: %w", err)
+		return cfg, fmt.Errorf("failed to parse config.json: %w", err)
 	}
 	cfg.Remote = normalizeRemoteSettings(cfg.Remote)
 	return cfg, nil
 }
 
-// SaveJRC writes ~/.config/jterrazz/jrc.json with strict file permissions.
+// SaveJRC writes ~/.jterrazz/config.json with strict file permissions.
 func SaveJRC(cfg JRCConfig) error {
 	cfg.Remote = normalizeRemoteSettings(cfg.Remote)
 	if err := ValidateRemoteSettings(cfg.Remote); err != nil {
@@ -149,21 +184,21 @@ func SaveJRC(cfg JRCConfig) error {
 
 	out, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to encode jrc.json: %w", err)
+		return fmt.Errorf("failed to encode config.json: %w", err)
 	}
 	out = append(out, '\n')
 
 	tmpPath := jrcPath() + ".tmp"
 	if err := os.WriteFile(tmpPath, out, 0600); err != nil {
-		return fmt.Errorf("failed to write temp jrc.json: %w", err)
+		return fmt.Errorf("failed to write temp config.json: %w", err)
 	}
 	if err := os.Rename(tmpPath, jrcPath()); err != nil {
-		return fmt.Errorf("failed to save jrc.json: %w", err)
+		return fmt.Errorf("failed to save config.json: %w", err)
 	}
 	return nil
 }
 
-// LoadRemoteSettings loads current remote settings from jrc.json.
+// LoadRemoteSettings loads current remote settings from config.json.
 func LoadRemoteSettings() (RemoteSettings, error) {
 	cfg, err := LoadJRC()
 	if err != nil {
@@ -172,7 +207,7 @@ func LoadRemoteSettings() (RemoteSettings, error) {
 	return cfg.Remote, nil
 }
 
-// SaveRemoteSettings saves remote settings into jrc.json.
+// SaveRemoteSettings saves remote settings into config.json.
 func SaveRemoteSettings(s RemoteSettings) error {
 	cfg, err := LoadJRC()
 	if err != nil {
@@ -182,7 +217,7 @@ func SaveRemoteSettings(s RemoteSettings) error {
 	return SaveJRC(cfg)
 }
 
-// HasRemoteSettings returns true when jrc.json exists and contains valid remote config.
+// HasRemoteSettings returns true when config.json exists and contains valid remote config.
 func HasRemoteSettings() bool {
 	if _, err := os.Stat(jrcPath()); err != nil {
 		return false
@@ -217,7 +252,7 @@ func ValidateRemoteSettings(s RemoteSettings) error {
 	return nil
 }
 
-// ConfigureRemoteInteractive prompts for remote settings and persists them in jrc.json.
+// ConfigureRemoteInteractive prompts for remote settings and persists them in config.json.
 func ConfigureRemoteInteractive() error {
 	current, err := LoadRemoteSettings()
 	if err != nil {
@@ -225,7 +260,7 @@ func ConfigureRemoteInteractive() error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Remote access setup (writes ~/.config/jterrazz/jrc.json)")
+	fmt.Println("Remote access setup (writes ~/.jterrazz/config.json)")
 	fmt.Println()
 
 	current = normalizeRemoteSettings(current)
@@ -620,7 +655,7 @@ func detectActiveMode() RemoteMode {
 	if _, err := getTailscaleStatus(RemoteModeUserspace); err == nil {
 		return RemoteModeUserspace
 	}
-	return RemoteModeUserspace
+	return RemoteModeAuto
 }
 
 // RemoteUp connects remote access using configured settings.
@@ -638,11 +673,10 @@ func RemoteUp(settings RemoteSettings) (RemoteMode, error) {
 		}
 		return RemoteModeUserspace, nil
 	case RemoteModeAuto:
-		if err := remoteUpWithMode(RemoteModeUserspace, settings); err == nil {
-			return RemoteModeUserspace, nil
-		} else {
+		if err := remoteUpWithMode(RemoteModeUserspace, settings); err != nil {
 			return "", err
 		}
+		return RemoteModeUserspace, nil
 	default:
 		return "", fmt.Errorf("unsupported mode: %s", settings.Mode)
 	}

@@ -1,6 +1,9 @@
 # jterrazz shell configuration
 # This file is sourced by ~/.zshrc
 
+# jterrazz CLI binary
+export PATH="$HOME/.jterrazz/bin:$PATH"
+
 # Bun global binaries
 export PATH="$HOME/.bun/bin:$PATH"
 

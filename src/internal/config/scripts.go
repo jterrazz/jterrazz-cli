@@ -184,16 +184,17 @@ var Scripts = []Script{
 	// ==========================================================================
 	{
 		Name:         "java",
-		Description:  "Configure Java runtime symlink for macOS",
+		Description:  "Configure JAVA_HOME in shell profile",
 		Category:     ScriptCategorySystem,
 		RequiresTool: "openjdk",
 		CheckFn: func() CheckResult {
-			if _, err := os.Lstat("/Library/Java/JavaVirtualMachines/openjdk.jdk"); err == nil {
-				return CheckResult{Installed: true, Detail: "/Library/Java/JavaVirtualMachines/openjdk.jdk"}
+			javaHome := "/opt/homebrew/opt/openjdk"
+			if _, err := os.Stat(javaHome + "/bin/java"); err == nil {
+				return CheckResult{Installed: true, Detail: "JAVA_HOME=" + javaHome}
 			}
 			return CheckResult{}
 		},
-		RunFn: runJavaSymlink,
+		RunFn: runJavaHome,
 	},
 	{
 		Name:        "dock-reset",
@@ -232,59 +233,49 @@ func runHushlogin() error {
 	return nil
 }
 
-func runGhosttyConfig() error {
-	fmt.Println(out.Cyan("Setting up Ghostty config..."))
-
-	configDir := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty"
-	configPath := configDir + "/config"
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+// copyRepoConfig copies a config file from the repo to a destination path.
+func copyRepoConfig(repoRelPath, destPath string) error {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	repoConfig, err := GetRepoConfigPath("dotfiles/applications/ghostty/config")
+	repoConfig, err := GetRepoConfigPath(repoRelPath)
 	if err != nil {
 		return fmt.Errorf("failed to find repo config: %w", err)
 	}
 
-	configContent, err := os.ReadFile(repoConfig)
+	content, err := os.ReadFile(repoConfig)
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %w", repoConfig, err)
 	}
 
-	if err := os.WriteFile(configPath, configContent, 0644); err != nil {
-		return fmt.Errorf("failed to write config file %s: %w", configPath, err)
+	if err := os.WriteFile(destPath, content, 0644); err != nil {
+		return fmt.Errorf("failed to write config file %s: %w", destPath, err)
 	}
 
+	return nil
+}
+
+func runGhosttyConfig() error {
+	fmt.Println(out.Cyan("Setting up Ghostty config..."))
+	destPath := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty/config"
+	if err := copyRepoConfig("dotfiles/applications/ghostty/config", destPath); err != nil {
+		return err
+	}
 	fmt.Println(out.Green("Done - Ghostty config installed"))
 	return nil
 }
 
 func runTmuxConfig() error {
 	fmt.Println(out.Cyan("Setting up tmux config..."))
-
 	configPath := os.Getenv("HOME") + "/.tmux.conf"
-
-	repoConfig, err := GetRepoConfigPath("dotfiles/applications/tmux/tmux.conf")
-	if err != nil {
-		return fmt.Errorf("failed to find repo config: %w", err)
+	if err := copyRepoConfig("dotfiles/applications/tmux/tmux.conf", configPath); err != nil {
+		return err
 	}
-
-	configContent, err := os.ReadFile(repoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to read config file %s: %w", repoConfig, err)
-	}
-
-	if err := os.WriteFile(configPath, configContent, 0644); err != nil {
-		return fmt.Errorf("failed to write config file %s: %w", configPath, err)
-	}
-
-	// Reload tmux config if a server is running.
 	if err := exec.Command("tmux", "source-file", configPath).Run(); err == nil {
 		fmt.Println(out.Green("Done - tmux config installed and reloaded"))
 		return nil
 	}
-
 	fmt.Println(out.Green("Done - tmux config installed"))
 	return nil
 }
@@ -479,58 +470,42 @@ func runSpotlightExclude() error {
 
 func runZedConfig() error {
 	fmt.Println(out.Cyan("Setting up Zed config..."))
-
-	configDir := os.Getenv("HOME") + "/.config/zed"
-	configPath := configDir + "/settings.json"
-
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("failed to create config directory: %w", err)
+	destPath := os.Getenv("HOME") + "/.config/zed/settings.json"
+	if err := copyRepoConfig("dotfiles/applications/zed/settings.json", destPath); err != nil {
+		return err
 	}
-
-	repoConfig, err := GetRepoConfigPath("dotfiles/applications/zed/settings.json")
-	if err != nil {
-		return fmt.Errorf("failed to find repo config: %w", err)
-	}
-
-	configContent, err := os.ReadFile(repoConfig)
-	if err != nil {
-		return fmt.Errorf("failed to read config file %s: %w", repoConfig, err)
-	}
-
-	if err := os.WriteFile(configPath, configContent, 0644); err != nil {
-		return fmt.Errorf("failed to write config file %s: %w", configPath, err)
-	}
-
 	fmt.Println(out.Green("Done - Zed config installed"))
 	return nil
 }
 
-func runJavaSymlink() error {
-	fmt.Println(out.Cyan("Setting up Java runtime..."))
+func runJavaHome() error {
+	fmt.Println(out.Cyan("Setting up JAVA_HOME..."))
 
-	brewJava := "/opt/homebrew/opt/openjdk/libexec/openjdk.jdk"
-	if _, err := os.Stat(brewJava); err != nil {
+	javaHome := "/opt/homebrew/opt/openjdk"
+	if _, err := os.Stat(javaHome + "/bin/java"); err != nil {
 		return fmt.Errorf("OpenJDK not installed. Run: j install openjdk")
 	}
 
-	symlinkPath := "/Library/Java/JavaVirtualMachines/openjdk.jdk"
-
-	if _, err := os.Lstat(symlinkPath); err == nil {
-		fmt.Printf("%s Java symlink already exists\n", out.Green("Done"))
+	zshrcPath := os.Getenv("HOME") + "/.zshrc"
+	existing, _ := os.ReadFile(zshrcPath)
+	if strings.Contains(string(existing), "JAVA_HOME") {
+		fmt.Println(out.Green("Done - JAVA_HOME already configured in ~/.zshrc"))
 		return nil
 	}
 
-	fmt.Println("Creating symlink for macOS Java recognition...")
+	f, err := os.OpenFile(zshrcPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open ~/.zshrc: %w", err)
+	}
+	defer f.Close()
 
-	sudoCmd := exec.Command("sudo", "ln", "-sfn", brewJava, symlinkPath)
-	sudoCmd.Stdout = os.Stdout
-	sudoCmd.Stderr = os.Stderr
-	sudoCmd.Stdin = os.Stdin
-	if err := sudoCmd.Run(); err != nil {
-		return fmt.Errorf("failed to create symlink: %w", err)
+	javaConfig := fmt.Sprintf("\n# Java (managed by j)\nexport JAVA_HOME=\"%s\"\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\n", javaHome)
+	if _, err := f.WriteString(javaConfig); err != nil {
+		return fmt.Errorf("failed to write to ~/.zshrc: %w", err)
 	}
 
-	fmt.Println(out.Green("Done - Java configured for macOS"))
+	fmt.Println(out.Green("Done - JAVA_HOME configured in ~/.zshrc"))
+	fmt.Println(out.Dimmed("Run 'source ~/.zshrc' to apply"))
 	return nil
 }
 
@@ -556,7 +531,7 @@ func IsDNSProfileInstalled() bool {
 }
 
 func dnsProfilePath() string {
-	return filepath.Join(os.Getenv("HOME"), ".config", "jterrazz", "quad9-dns.mobileconfig")
+	return filepath.Join(os.Getenv("HOME"), ".jterrazz", "dns", "quad9-dns.mobileconfig")
 }
 
 func runDNSEncrypt() error {
@@ -645,23 +620,24 @@ func generateDNSProfile() string {
 
 // GetRepoConfigPath returns the full path for a file in the repo
 func GetRepoConfigPath(relativePath string) (string, error) {
-	possibleRoots := []string{
-		os.Getenv("HOME") + "/Developer/jterrazz-cli",
-		"/usr/local/share/jterrazz-cli",
+	root := os.Getenv("HOME") + "/Developer/jterrazz-cli"
+	fullPath := root + "/" + relativePath
+	if _, err := os.Stat(fullPath); err == nil {
+		return fullPath, nil
 	}
+	return "", fmt.Errorf("config file not found: %s (expected at %s)", relativePath, fullPath)
+}
 
-	for _, root := range possibleRoots {
-		fullPath := root + "/" + relativePath
-		if _, err := os.Stat(fullPath); err == nil {
-			return fullPath, nil
-		}
-	}
-
-	return "", fmt.Errorf("config file not found: %s", relativePath)
+// ExecCommand runs a command with stdout/stderr/stdin attached
+func ExecCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
 }
 
 // CommandExists checks if a command is available in PATH
-// Re-exported from system package for convenience
 var CommandExists = tool.CommandExists
 
 // =============================================================================

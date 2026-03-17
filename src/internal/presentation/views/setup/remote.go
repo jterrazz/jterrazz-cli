@@ -105,7 +105,7 @@ func BuildRemoteItems() []components.Item {
 	items = append(items, components.Item{
 		Kind:        components.KindNavigation,
 		Label:       "save",
-		Description: "~/.config/jterrazz/jrc.json",
+		Description: "~/.jterrazz/config.json",
 	})
 	remote.itemData = append(remote.itemData, remoteItemData{action: remoteActionSave})
 

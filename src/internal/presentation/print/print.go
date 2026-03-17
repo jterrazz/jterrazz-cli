@@ -131,41 +131,7 @@ func Usage(lines ...string) {
 }
 
 // =============================================================================
-// Inline Render Functions (return string, don't print)
-// =============================================================================
-
-// RenderSpecial renders text in special/cyan style
-func RenderSpecial(s string) string {
-	return theme.Special.Render(s)
-}
-
-// RenderMuted renders text in muted style
-func RenderMuted(s string) string {
-	return theme.Muted.Render(s)
-}
-
-// RenderSuccess renders text in success style
-func RenderSuccess(s string) string {
-	return theme.Success.Render(s)
-}
-
-// RenderWarning renders text in warning style
-func RenderWarning(s string) string {
-	return theme.Warning.Render(s)
-}
-
-// RenderDanger renders text in danger style
-func RenderDanger(s string) string {
-	return theme.Danger.Render(s)
-}
-
-// RenderStatusIcon renders a status icon (check or cross)
-func RenderStatusIcon(ok bool) string {
-	return components.Badge(ok)
-}
-
-// =============================================================================
-// Color Helpers (for direct fmt usage)
+// Color Helpers (return styled string for use with fmt)
 // =============================================================================
 
 var (

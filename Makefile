@@ -1,61 +1,90 @@
 .PHONY: build install uninstall check test clean help
 
+# ==============================================================================
 # Configuration
-BINARY_NAME := j
-INSTALL_PATH := /usr/local/bin/$(BINARY_NAME)
-ZSHRC_SOURCE := dotfiles/applications/zsh/zshrc.sh
-ZSHRC_LINE := source $(PWD)/$(ZSHRC_SOURCE)
+# ==============================================================================
 
-help: ## Show this help message
-	@echo "jterrazz-cli"
-	@echo ""
-	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+BINARY          := j
+JTERRAZZ_DIR    := $(HOME)/.jterrazz
+BIN_DIR         := $(JTERRAZZ_DIR)/bin
+INSTALL_PATH    := $(BIN_DIR)/$(BINARY)
+ZSHRC_SOURCE    := dotfiles/applications/zsh/zshrc.sh
+OLD_CONFIG_DIR  := $(HOME)/.config/jterrazz
+OLD_INSTALL     := /usr/local/bin/$(BINARY)
 
-build: ## Build the j binary
-	@echo "Building $(BINARY_NAME)..."
-	@go build -o $(BINARY_NAME) ./src/cmd/j
-	@echo "✅ Built ./$(BINARY_NAME)"
+CYAN  := \033[36m
+GREEN := \033[32m
+DIM   := \033[2m
+RESET := \033[0m
 
-install: build ## Build and install j to /usr/local/bin
-	@echo "Installing $(BINARY_NAME) to $(INSTALL_PATH)..."
-	@sudo cp $(BINARY_NAME) $(INSTALL_PATH)
-	@sudo chmod +x $(INSTALL_PATH)
-	@rm $(BINARY_NAME)
-	@echo "Setting up shell completions..."
+# ==============================================================================
+# Targets
+# ==============================================================================
+
+help: ## Show available targets
+	@printf "$(CYAN)jterrazz-cli$(RESET)\n"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "$(CYAN)%-12s$(RESET) %s\n", $$1, $$2}'
+
+build: ## Build the binary
+	@go build -o $(BINARY) ./src/cmd/j
+	@printf "$(GREEN)✓$(RESET) Built ./$(BINARY)\n"
+
+install: build ## Build and install to ~/.jterrazz/bin
+	@mkdir -p $(BIN_DIR)
+	@cp $(BINARY) $(INSTALL_PATH)
+	@chmod +x $(INSTALL_PATH)
+	@rm $(BINARY)
+	@printf "$(GREEN)✓$(RESET) Installed $(INSTALL_PATH)\n"
+	@if [ -f "$(OLD_INSTALL)" ]; then \
+		sudo rm "$(OLD_INSTALL)"; \
+		printf "$(GREEN)✓$(RESET) Removed old $(OLD_INSTALL)\n"; \
+	fi
+	@if [ -f "$(OLD_CONFIG_DIR)/jrc.json" ] && [ ! -f "$(JTERRAZZ_DIR)/config.json" ]; then \
+		cp "$(OLD_CONFIG_DIR)/jrc.json" "$(JTERRAZZ_DIR)/config.json"; \
+		printf "$(GREEN)✓$(RESET) Migrated config.json\n"; \
+	fi
+	@if [ -d "$(OLD_CONFIG_DIR)/tailscale" ] && [ ! -d "$(JTERRAZZ_DIR)/tailscale" ]; then \
+		cp -r "$(OLD_CONFIG_DIR)/tailscale" "$(JTERRAZZ_DIR)/tailscale"; \
+		printf "$(GREEN)✓$(RESET) Migrated tailscale state\n"; \
+	fi
 	@if [ -f "$$HOME/.zshrc" ]; then \
 		if ! grep -q "$(ZSHRC_SOURCE)" "$$HOME/.zshrc"; then \
-			echo '\n# jterrazz-cli' >> "$$HOME/.zshrc"; \
-			echo 'source $(PWD)/$(ZSHRC_SOURCE)' >> "$$HOME/.zshrc"; \
-			echo "✅ Added shell completions to ~/.zshrc"; \
-		else \
-			echo "✅ Shell completions already configured in ~/.zshrc"; \
+			printf '\n# jterrazz-cli\nsource $(PWD)/$(ZSHRC_SOURCE)\n' >> "$$HOME/.zshrc"; \
+			printf "$(GREEN)✓$(RESET) Added source to ~/.zshrc\n"; \
 		fi \
 	else \
-		echo "⚠️  ~/.zshrc not found. Add this line manually:"; \
-		echo "    source $(PWD)/$(ZSHRC_SOURCE)"; \
+		printf "$(DIM)~/.zshrc not found — add manually: source $(PWD)/$(ZSHRC_SOURCE)$(RESET)\n"; \
 	fi
-	@echo "✅ Installed! Run 'source ~/.zshrc' then 'j help' to get started."
+	@printf "$(GREEN)✓$(RESET) Done — run $(DIM)source ~/.zshrc$(RESET) then $(DIM)j help$(RESET)\n"
 
-uninstall: ## Remove j from /usr/local/bin
-	@echo "Uninstalling $(BINARY_NAME)..."
+uninstall: ## Remove binary from ~/.jterrazz/bin
 	@if [ -f "$(INSTALL_PATH)" ]; then \
-		sudo rm $(INSTALL_PATH); \
-		echo "✅ Uninstalled $(BINARY_NAME)"; \
+		rm "$(INSTALL_PATH)"; \
+		printf "$(GREEN)✓$(RESET) Removed $(INSTALL_PATH)\n"; \
 	else \
-		echo "⚠️  $(BINARY_NAME) not found at $(INSTALL_PATH)"; \
+		printf "$(DIM)$(BINARY) not found at $(INSTALL_PATH)$(RESET)\n"; \
+	fi
+	@if [ -f "$(OLD_INSTALL)" ]; then \
+		sudo rm "$(OLD_INSTALL)"; \
+		printf "$(GREEN)✓$(RESET) Removed $(OLD_INSTALL)\n"; \
 	fi
 
-check: ## Check if j is installed
-	@if command -v $(BINARY_NAME) >/dev/null 2>&1; then \
-		echo "✅ $(BINARY_NAME) is installed at $$(which $(BINARY_NAME))"; \
+check: ## Verify installation
+	@if command -v $(BINARY) >/dev/null 2>&1; then \
+		printf "$(GREEN)✓$(RESET) $(BINARY) $(DIM)$$(which $(BINARY))$(RESET)\n"; \
 	else \
-		echo "❌ $(BINARY_NAME) is not installed"; \
+		printf "✗ $(BINARY) not found in PATH\n"; \
+	fi
+	@if [ -d "$(JTERRAZZ_DIR)" ]; then \
+		printf "$(GREEN)✓$(RESET) ~/.jterrazz $(DIM)exists$(RESET)\n"; \
+	else \
+		printf "✗ ~/.jterrazz not found\n"; \
 	fi
 
 test: ## Run tests
 	@go test ./src/...
 
 clean: ## Remove build artifacts
-	@rm -f $(BINARY_NAME)
-	@echo "✅ Cleaned"
+	@rm -f $(BINARY)
+	@printf "$(GREEN)✓$(RESET) Cleaned\n"

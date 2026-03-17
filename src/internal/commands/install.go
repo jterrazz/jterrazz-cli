@@ -134,7 +134,7 @@ func installToolByName(name string) {
 		print.Row(true, t.Name, "installed")
 		// Run post-install scripts
 		for _, scriptName := range t.Scripts {
-			runSetupItem(scriptName)
+			runScript(scriptName)
 		}
 	}
 }

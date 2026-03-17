@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -169,15 +168,6 @@ var RunCommands = []RunCommand{
 			},
 		},
 	},
-}
-
-// ExecCommand runs a command with stdout/stderr/stdin attached
-func ExecCommand(name string, args ...string) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
 }
 
 // gitCommit stages all changes and commits with a prefixed message

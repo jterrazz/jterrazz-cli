@@ -86,7 +86,10 @@ func runCleanable(c config.Cleanable) {
 
 	print.Action("🧹", c.Description+"...")
 	if c.CleanFn != nil {
-		c.CleanFn()
+		if err := c.CleanFn(); err != nil {
+			print.Error("Failed to clean " + c.Name + ": " + err.Error())
+			return
+		}
 	}
 	print.Row(true, c.Name, "completed")
 }
