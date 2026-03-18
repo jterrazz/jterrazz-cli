@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -92,12 +93,10 @@ var NetworkChecks = []ResourceCheck{
 			// Check if tailscale is running
 			out, err := exec.Command("tailscale", "status", "--json").Output()
 			if err != nil {
-				return ResourceResult{Available: false}
+				return ResourceResult{Value: "disconnected", Style: "muted", Available: true}
 			}
 			outStr := string(out)
-			// Check if BackendState is "Running"
 			if strings.Contains(outStr, `"BackendState":"Running"`) {
-				// Get tailscale IP
 				ipOut, _ := exec.Command("tailscale", "ip", "-4").Output()
 				ip := strings.TrimSpace(string(ipOut))
 				if ip != "" {
@@ -127,12 +126,15 @@ var NetworkChecks = []ResourceCheck{
 					return ResourceResult{Value: "connected", Style: "success", Available: true}
 				}
 			}
-			return ResourceResult{Available: false}
+			return ResourceResult{Value: "none", Style: "muted", Available: true}
 		},
 	},
 	{
 		Name: "dns",
 		CheckFn: func() ResourceResult {
+			if IsDNSProfileInstalled() {
+				return ResourceResult{Value: "Quad9 (encrypted)", Style: "success", Available: true}
+			}
 			out, _ := exec.Command("scutil", "--dns").Output()
 			var servers []string
 			for _, line := range strings.Split(string(out), "\n") {
@@ -145,6 +147,10 @@ var NetworkChecks = []ResourceCheck{
 					if server == "" || server == "127.0.0.1" || server == "::1" {
 						continue
 					}
+					// Skip IPv6
+					if strings.Contains(server, ":") {
+						continue
+					}
 					found := false
 					for _, s := range servers {
 						if s == server {
@@ -152,78 +158,15 @@ var NetworkChecks = []ResourceCheck{
 							break
 						}
 					}
-					if !found && len(servers) < 3 {
+					if !found && len(servers) < 2 {
 						servers = append(servers, server)
 					}
 				}
 			}
 			if len(servers) > 0 {
-				value := strings.Join(servers, ", ")
-				style := "muted"
-				if IsDNSProfileInstalled() {
-					value += " (Quad9 encrypted)"
-					style = "success"
-				}
-				return ResourceResult{Value: value, Style: style, Available: true}
+				return ResourceResult{Value: strings.Join(servers, ", "), Style: "muted", Available: true}
 			}
 			return ResourceResult{Available: false}
-		},
-	},
-	{
-		Name: "listening",
-		CheckFn: func() ResourceResult {
-			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n").Output()
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			if len(lines) <= 1 {
-				return ResourceResult{Value: "none", Style: "muted", Available: true}
-			}
-
-			// Count unique ports and collect common service names
-			ports := make(map[string]string) // port -> command name
-			for i := 1; i < len(lines); i++ {
-				fields := strings.Fields(lines[i])
-				if len(fields) < 9 {
-					continue
-				}
-				cmd := fields[0]
-				addr := fields[8]
-				// Extract port from address like *:8080 or 127.0.0.1:3000
-				if idx := strings.LastIndex(addr, ":"); idx >= 0 {
-					port := addr[idx+1:]
-					if _, exists := ports[port]; !exists {
-						ports[port] = cmd
-					}
-				}
-			}
-
-			// Show top services with their ports
-			var services []string
-			commonPorts := map[string]string{
-				"22": "ssh", "80": "http", "443": "https", "3000": "dev",
-				"5432": "postgres", "3306": "mysql", "6379": "redis", "27017": "mongo",
-				"8080": "http-alt", "9000": "php-fpm", "5000": "flask",
-			}
-
-			for port, cmd := range ports {
-				if len(services) >= 4 {
-					break
-				}
-				label := cmd
-				if name, ok := commonPorts[port]; ok {
-					label = name
-				}
-				services = append(services, fmt.Sprintf("%s:%s", label, port))
-			}
-
-			if len(services) == 0 {
-				return ResourceResult{Value: "none", Style: "muted", Available: true}
-			}
-
-			extra := ""
-			if len(ports) > len(services) {
-				extra = fmt.Sprintf(" +%d", len(ports)-len(services))
-			}
-			return ResourceResult{Value: strings.Join(services, ", ") + extra, Style: "muted", Available: true}
 		},
 	},
 }
@@ -236,7 +179,7 @@ type DiskCheck struct {
 	CheckFn func() ResourceResult // Custom check (overrides Path)
 }
 
-// CacheChecks shows cleanable caches
+// CacheChecks shows disk usage grouped by domain
 var CacheChecks = []DiskCheck{
 	{
 		Name: "docker",
@@ -246,17 +189,57 @@ var CacheChecks = []DiskCheck{
 			}
 			out, _ := exec.Command("docker", "system", "df", "--format", "{{.Size}}").Output()
 			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			if len(lines) > 0 && lines[0] != "" {
-				return ResourceResult{Value: strings.Join(lines, " + "), Style: "muted", Available: true}
+			var total int64
+			for _, line := range lines {
+				total += parseDockerSize(strings.TrimSpace(line))
+			}
+			if total > 0 {
+				return ResourceResult{Value: tool.FormatBytes(total), Style: "muted", Available: true}
 			}
 			return ResourceResult{Available: false}
 		},
 	},
-	{Name: "xcode derived", Path: "~/Library/Developer/Xcode/DerivedData", Style: "muted"},
-	{Name: "xcode archives", Path: "~/Library/Developer/Xcode/Archives", Style: "muted"},
-	{Name: "ios device support", Path: "~/Library/Developer/Xcode/iOS DeviceSupport", Style: "muted"},
-	{Name: "cocoapods cache", Path: "~/Library/Caches/CocoaPods", Style: "muted"},
-	{Name: "homebrew cache", Path: "~/Library/Caches/Homebrew", Style: "muted"},
+	{
+		Name: "xcode",
+		CheckFn: func() ResourceResult {
+			paths := []string{
+				"~/Library/Developer/Xcode/DerivedData",
+				"~/Library/Developer/Xcode/Archives",
+				"~/Library/Developer/Xcode/iOS DeviceSupport",
+			}
+			var total int64
+			for _, p := range paths {
+				total += GetDirSize(expandHome(p))
+			}
+			if total > 0 {
+				return ResourceResult{Value: tool.FormatBytes(total), Style: "muted", Available: true}
+			}
+			return ResourceResult{Available: false}
+		},
+	},
+	{Name: "homebrew", Path: "~/Library/Caches/Homebrew", Style: "muted"},
+	{
+		Name: "packages",
+		CheckFn: func() ResourceResult {
+			paths := []string{
+				"~/.npm",
+				"~/Library/pnpm",
+				"~/.bun/install/cache",
+				"~/Library/Caches/Yarn",
+				"~/Library/Caches/CocoaPods",
+				"~/go/pkg/mod",
+				"~/.gradle/caches",
+			}
+			var total int64
+			for _, p := range paths {
+				total += GetDirSize(expandHome(p))
+			}
+			if total > 0 {
+				return ResourceResult{Value: tool.FormatBytes(total), Style: "muted", Available: true}
+			}
+			return ResourceResult{Available: false}
+		},
+	},
 	{
 		Name: "multipass",
 		CheckFn: func() ResourceResult {
@@ -270,15 +253,37 @@ var CacheChecks = []DiskCheck{
 			return ResourceResult{Available: false}
 		},
 	},
-	{Name: "npm cache", Path: "~/.npm", Style: "muted"},
-	{Name: "pnpm cache", Path: "~/Library/pnpm", Style: "muted"},
-	{Name: "bun cache", Path: "~/.bun/install/cache", Style: "muted"},
-	{Name: "yarn cache", Path: "~/Library/Caches/Yarn", Style: "muted"},
-	{Name: "go modules", Path: "~/go/pkg/mod", Style: "muted"},
-	{Name: "gradle cache", Path: "~/.gradle/caches", Style: "muted"},
-	{Name: "system logs", Path: "/var/log", Style: "muted"},
-	{Name: "user logs", Path: "~/Library/Logs", Style: "muted"},
+	{
+		Name: "logs",
+		CheckFn: func() ResourceResult {
+			total := GetDirSize("/var/log") + GetDirSize(expandHome("~/Library/Logs"))
+			if total > 0 {
+				return ResourceResult{Value: tool.FormatBytes(total), Style: "muted", Available: true}
+			}
+			return ResourceResult{Available: false}
+		},
+	},
 	{Name: "trash", Path: "~/.Trash", Style: "muted"},
+}
+
+// parseDockerSize parses Docker size strings like "1.973GB", "469.4kB" into bytes
+func parseDockerSize(s string) int64 {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "0B" {
+		return 0
+	}
+	multipliers := map[string]float64{
+		"B": 1, "kB": 1e3, "MB": 1e6, "GB": 1e9, "TB": 1e12,
+	}
+	for suffix, mult := range multipliers {
+		if strings.HasSuffix(s, suffix) {
+			numStr := strings.TrimSuffix(s, suffix)
+			var val float64
+			fmt.Sscanf(numStr, "%f", &val)
+			return int64(val * mult)
+		}
+	}
+	return 0
 }
 
 // CheckDisk checks a disk path and returns the result
@@ -311,9 +316,8 @@ type ProcessCheck struct {
 // ProcessChecks defines the process monitoring checks
 var ProcessChecks = []ProcessCheck{
 	{
-		Name: "top cpu",
+		Name: "CPU",
 		CheckFn: func() []ProcessInfo {
-			// ps -arcwwwxo pid,%cpu,comm (sorted by CPU descending)
 			out, err := exec.Command("ps", "-arcwwwxo", "pid,%cpu,comm").Output()
 			if err != nil {
 				return nil
@@ -322,9 +326,8 @@ var ProcessChecks = []ProcessCheck{
 		},
 	},
 	{
-		Name: "top memory",
+		Name: "Memory",
 		CheckFn: func() []ProcessInfo {
-			// ps -amcwwwxo pid,rss,comm (sorted by memory descending, RSS in KB)
 			out, err := exec.Command("ps", "-amcwwwxo", "pid,rss,comm").Output()
 			if err != nil {
 				return nil
@@ -332,6 +335,96 @@ var ProcessChecks = []ProcessCheck{
 			return parseMemoryOutput(out)
 		},
 	},
+	{
+		Name: "Ports",
+		CheckFn: func() []ProcessInfo {
+			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n").Output()
+			return parseListeningPorts(out)
+		},
+	},
+	{
+		Name: "Containers",
+		CheckFn: func() []ProcessInfo {
+			if !CommandExists("docker") {
+				return nil
+			}
+			out, err := exec.Command("docker", "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}").Output()
+			if err != nil {
+				return nil
+			}
+			return parseDockerContainers(out)
+		},
+	},
+	{
+		Name: "Git",
+		CheckFn: func() []ProcessInfo {
+			return scanDirtyRepos()
+		},
+	},
+	{
+		Name: "Uptime",
+		CheckFn: func() []ProcessInfo {
+			return getUptimeInfo()
+		},
+	},
+}
+
+// parseListeningPorts parses lsof output into port → process entries
+func parseListeningPorts(out []byte) []ProcessInfo {
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) <= 1 {
+		return nil
+	}
+
+	// Collect unique port → process mappings
+	type portEntry struct {
+		port    string
+		portNum int
+		cmd     string
+	}
+
+	seen := make(map[string]bool)
+	var entries []portEntry
+
+	for i := 1; i < len(lines); i++ {
+		fields := strings.Fields(lines[i])
+		if len(fields) < 9 {
+			continue
+		}
+		cmd := fields[0]
+		addr := fields[8]
+
+		port := ""
+		if idx := strings.LastIndex(addr, ":"); idx >= 0 {
+			port = addr[idx+1:]
+		}
+		if port == "" {
+			continue
+		}
+
+		key := port + "/" + cmd
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		num, _ := strconv.Atoi(port)
+		entries = append(entries, portEntry{port: port, portNum: num, cmd: cmd})
+	}
+
+	// Sort by port number
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].portNum < entries[j].portNum
+	})
+
+	var result []ProcessInfo
+	for _, e := range entries {
+		result = append(result, ProcessInfo{
+			Name:  e.cmd,
+			Value: ":" + e.port,
+		})
+	}
+	return result
 }
 
 // parseCPUOutput parses ps CPU output into ProcessInfo slice
@@ -395,4 +488,169 @@ func parseMemoryOutput(out []byte) []ProcessInfo {
 	}
 
 	return processes
+}
+
+// parseDockerContainers parses docker ps output into ProcessInfo entries
+func parseDockerContainers(out []byte) []ProcessInfo {
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	var result []ProcessInfo
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		name := parts[0]
+		statusStr := parts[1]
+
+		short := statusStr
+		if strings.HasPrefix(statusStr, "Up ") {
+			short = shortenUptime(strings.TrimPrefix(statusStr, "Up "))
+		}
+
+		portInfo := ""
+		if len(parts) == 3 && parts[2] != "" {
+			portInfo = extractHostPorts(parts[2])
+		}
+
+		value := short
+		if portInfo != "" {
+			value = portInfo + " " + short
+		}
+
+		result = append(result, ProcessInfo{Name: name, Value: value})
+	}
+	return result
+}
+
+// extractHostPorts extracts unique host ports from docker port mappings
+func extractHostPorts(ports string) string {
+	var hostPorts []string
+	seen := make(map[string]bool)
+	for _, mapping := range strings.Split(ports, ", ") {
+		if idx := strings.Index(mapping, "->"); idx > 0 {
+			hostPart := mapping[:idx]
+			if colonIdx := strings.LastIndex(hostPart, ":"); colonIdx >= 0 {
+				port := hostPart[colonIdx+1:]
+				if !seen[port] {
+					seen[port] = true
+					hostPorts = append(hostPorts, ":"+port)
+				}
+			}
+		}
+	}
+	if len(hostPorts) == 0 {
+		return ""
+	}
+	return strings.Join(hostPorts, ",")
+}
+
+// shortenUptime shortens "3 hours" → "3h", "2 days" → "2d", etc.
+func shortenUptime(s string) string {
+	s = strings.TrimSpace(s)
+	if idx := strings.Index(s, " ("); idx > 0 {
+		s = s[:idx]
+	}
+	replacer := strings.NewReplacer(
+		" seconds", "s", " second", "s",
+		" minutes", "m", " minute", "m",
+		" hours", "h", " hour", "h",
+		" days", "d", " day", "d",
+		" weeks", "w", " week", "w",
+		" months", "mo", " month", "mo",
+		"About ", "~",
+	)
+	return replacer.Replace(s)
+}
+
+// scanDirtyRepos finds repos with uncommitted changes in ~/Developer
+func scanDirtyRepos() []ProcessInfo {
+	devDir := os.Getenv("HOME") + "/Developer"
+	entries, err := os.ReadDir(devDir)
+	if err != nil {
+		return nil
+	}
+
+	var result []ProcessInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		repoPath := devDir + "/" + entry.Name()
+		if _, err := os.Stat(repoPath + "/.git"); err != nil {
+			continue
+		}
+
+		cmd := exec.Command("git", "-C", repoPath, "status", "--porcelain")
+		out, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+		status := strings.TrimSpace(string(out))
+		if status == "" {
+			continue
+		}
+
+		lines := strings.Split(status, "\n")
+
+		branchCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+		branchOut, _ := branchCmd.Output()
+		branch := strings.TrimSpace(string(branchOut))
+		if branch == "" {
+			branch = "?"
+		}
+
+		value := fmt.Sprintf("%s %d changed", branch, len(lines))
+		result = append(result, ProcessInfo{Name: entry.Name(), Value: value})
+	}
+	return result
+}
+
+// getUptimeInfo returns system uptime, load average, and battery info
+func getUptimeInfo() []ProcessInfo {
+	var result []ProcessInfo
+
+	uptimeOut, _ := exec.Command("uptime").Output()
+	uptimeStr := strings.TrimSpace(string(uptimeOut))
+	if uptimeStr != "" {
+		if idx := strings.Index(uptimeStr, "up "); idx >= 0 {
+			rest := uptimeStr[idx+3:]
+			if uIdx := strings.Index(rest, " user"); uIdx > 0 {
+				upPart := rest[:uIdx]
+				if cIdx := strings.LastIndex(upPart, ","); cIdx > 0 {
+					upPart = strings.TrimSpace(upPart[:cIdx])
+				}
+				result = append(result, ProcessInfo{Name: "uptime", Value: strings.TrimRight(upPart, ",")})
+			}
+		}
+		if idx := strings.Index(uptimeStr, "load averages: "); idx >= 0 {
+			loads := strings.TrimSpace(uptimeStr[idx+len("load averages: "):])
+			result = append(result, ProcessInfo{Name: "load", Value: loads})
+		} else if idx := strings.Index(uptimeStr, "load average: "); idx >= 0 {
+			loads := strings.TrimSpace(uptimeStr[idx+len("load average: "):])
+			result = append(result, ProcessInfo{Name: "load", Value: loads})
+		}
+	}
+
+	battOut, err := exec.Command("pmset", "-g", "batt").Output()
+	if err == nil {
+		for _, line := range strings.Split(string(battOut), "\n") {
+			if strings.Contains(line, "%") {
+				line = strings.TrimSpace(line)
+				if tabIdx := strings.Index(line, "\t"); tabIdx >= 0 {
+					info := strings.TrimSpace(line[tabIdx:])
+					parts := strings.SplitN(info, ";", 3)
+					if len(parts) >= 2 {
+						pct := strings.TrimSpace(parts[0])
+						state := strings.TrimSpace(parts[1])
+						result = append(result, ProcessInfo{Name: "battery", Value: pct + " " + state})
+					}
+				}
+			}
+		}
+	}
+
+	return result
 }

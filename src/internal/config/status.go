@@ -8,16 +8,26 @@ type StatusSection struct {
 }
 
 // StatusSections defines all status sections in display order
-// This is the single source of truth for the status command layout
 var StatusSections = []StatusSection{
-	// Setup section (standalone)
-	{Title: "Setup", SubTitle: "Setup", RenderFn: nil}, // Uses Scripts
+	// Activity — live performance
+	{Title: "Activity", SubTitle: "CPU", RenderFn: nil},
+	{Title: "Activity", SubTitle: "Memory", RenderFn: nil},
 
-	// System section with subsections
-	{Title: "System", SubTitle: "Security", RenderFn: nil}, // Uses SecurityChecks
-	{Title: "System", SubTitle: "Identity", RenderFn: nil}, // Uses IdentityChecks
+	// Environment — network, services, system health
+	{Title: "Environment", SubTitle: "Network", RenderFn: nil},
+	{Title: "Environment", SubTitle: "Services", RenderFn: nil},
+	{Title: "Environment", SubTitle: "System", RenderFn: nil},
 
-	// Tools section - one subsection per category
+	// Workspace — dev state
+	{Title: "Workspace", SubTitle: "Git", RenderFn: nil},
+	{Title: "Workspace", SubTitle: "Disk", RenderFn: nil},
+
+	// Setup — config checks (flat)
+	{Title: "Setup", SubTitle: "Setup", RenderFn: nil},
+	{Title: "Setup", SubTitle: "Security", RenderFn: nil},
+	{Title: "Setup", SubTitle: "Identity", RenderFn: nil},
+
+	// Tools — inventory (cards)
 	{Title: "Tools", SubTitle: "Package Managers", RenderFn: nil},
 	{Title: "Tools", SubTitle: "Runtimes", RenderFn: nil},
 	{Title: "Tools", SubTitle: "DevOps", RenderFn: nil},
@@ -25,11 +35,6 @@ var StatusSections = []StatusSection{
 	{Title: "Tools", SubTitle: "Terminal & Git", RenderFn: nil},
 	{Title: "Tools", SubTitle: "GUI Apps", RenderFn: nil},
 	{Title: "Tools", SubTitle: "Mac App Store", RenderFn: nil},
-
-	// Resources section with subsections
-	{Title: "Resources", SubTitle: "Top Processes", RenderFn: nil},      // Uses ProcessChecks
-	{Title: "Resources", SubTitle: "Network", RenderFn: nil},            // Uses NetworkChecks
-	{Title: "Resources", SubTitle: "Caches & Cleanable", RenderFn: nil}, // Uses CacheChecks
 }
 
 // ToolCategories defines the order of tool categories in status display

@@ -90,42 +90,48 @@ func SubsectionBox(title string, lines []string, width int) string {
 }
 
 // =============================================================================
-// Simple Box (no title)
-// =============================================================================
-
-// SimpleBox renders a simple box with rounded borders
-func SimpleBox(content string, width int) string {
-	lines := strings.Split(content, "\n")
-	innerWidth := width - 4
-	if innerWidth < 10 {
-		innerWidth = 10
-	}
-
-	borderStyle := theme.SectionBorder
-
-	top := borderStyle.Render(theme.BoxRoundedTopLeft + strings.Repeat(theme.BoxRoundedHorizontal, innerWidth+2) + theme.BoxRoundedTopRight)
-	bottom := borderStyle.Render(theme.BoxRoundedBottomLeft + strings.Repeat(theme.BoxRoundedHorizontal, innerWidth+2) + theme.BoxRoundedBottomRight)
-
-	var paddedLines []string
-	for _, line := range lines {
-		paddedLines = append(paddedLines, padBoxLine(line, innerWidth))
-	}
-
-	return top + "\n" + strings.Join(paddedLines, "\n") + "\n" + bottom
-}
-
-// =============================================================================
 // Helpers
 // =============================================================================
 
-// padBoxLine pads a line to fit inside a box with borders
+// padBoxLine pads or truncates a line to fit inside a box with borders
 func padBoxLine(line string, innerWidth int) string {
 	borderStyle := theme.SectionBorder
-	padding := innerWidth - VisibleLen(line)
-	if padding < 0 {
-		padding = 0
+	visLen := VisibleLen(line)
+	if visLen > innerWidth {
+		line = truncateAnsi(line, innerWidth)
+		visLen = innerWidth
 	}
+	padding := innerWidth - visLen
 	return borderStyle.Render(theme.BoxRoundedVertical+" ") + line + strings.Repeat(" ", padding) + borderStyle.Render(" "+theme.BoxRoundedVertical)
+}
+
+// truncateAnsi truncates a string with ANSI escape codes to a visible width
+func truncateAnsi(s string, maxWidth int) string {
+	var result strings.Builder
+	visible := 0
+	inEscape := false
+	for _, r := range s {
+		if r == '\x1b' {
+			inEscape = true
+			result.WriteRune(r)
+			continue
+		}
+		if inEscape {
+			result.WriteRune(r)
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+				inEscape = false
+			}
+			continue
+		}
+		if visible >= maxWidth {
+			break
+		}
+		result.WriteRune(r)
+		visible++
+	}
+	// Reset styling after truncation
+	result.WriteString("\x1b[0m")
+	return result.String()
 }
 
 // VisibleLen returns the visible length of a string, stripping ANSI escape codes

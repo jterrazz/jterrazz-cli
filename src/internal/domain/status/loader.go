@@ -100,16 +100,83 @@ func (l *Loader) GetPendingCount() int {
 
 // buildItems creates all status items in display order
 func (l *Loader) buildItems() {
-	// System Info header
+	// System info (used in header subtitle)
 	l.addItem(Item{
 		ID:      "sysinfo",
 		Kind:    KindSystemInfo,
-		Section: "System",
+		Section: "Activity",
 		Name:    "System Info",
 	})
 
-	// Setup section (standalone)
-	l.addItem(Item{ID: "header-setup", Kind: KindHeader, Section: "Setup", SubSection: "Setup", Loaded: true})
+	// ── Activity ──────────────────────────────────────────────────────
+	// CPU and Memory process checks
+	for _, check := range config.ProcessChecks {
+		section := "Activity"
+		subsection := check.Name
+		// Services = Containers + Ports
+		if check.Name == "Containers" || check.Name == "Ports" {
+			section = "Environment"
+			subsection = "Services"
+		}
+		// Uptime goes to Environment/System
+		if check.Name == "Uptime" {
+			section = "Environment"
+			subsection = "System"
+		}
+		// Git goes to Workspace
+		if check.Name == "Git" {
+			section = "Workspace"
+			subsection = "Git"
+		}
+
+		l.addItem(Item{
+			ID:         "process-" + check.Name,
+			Kind:       KindProcess,
+			Section:    section,
+			SubSection: subsection,
+			Name:       check.Name,
+		})
+	}
+
+	// ── Environment ───────────────────────────────────────────────────
+	// Network checks
+	for _, check := range config.NetworkChecks {
+		l.addItem(Item{
+			ID:         "network-" + check.Name,
+			Kind:       KindNetwork,
+			Section:    "Environment",
+			SubSection: "Network",
+			Name:       check.Name,
+		})
+	}
+
+	// Security checks → Environment/System
+	for _, check := range config.SecurityChecks {
+		l.addItem(Item{
+			ID:          "security-" + check.Name,
+			Kind:        KindSecurity,
+			Section:     "Environment",
+			SubSection:  "System",
+			Name:        check.Name,
+			Description: check.Description,
+			GoodWhen:    check.GoodWhen,
+		})
+	}
+
+	// ── Workspace ─────────────────────────────────────────────────────
+	// Disk/cache checks
+	for _, check := range config.CacheChecks {
+		l.addItem(Item{
+			ID:         "cache-" + check.Name,
+			Kind:       KindCache,
+			Section:    "Workspace",
+			SubSection: "Disk",
+			Name:       check.Name,
+		})
+	}
+
+	// ── Setup ─────────────────────────────────────────────────────────
+	// Setup scripts
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
 			continue
@@ -132,27 +199,12 @@ func (l *Loader) buildItems() {
 		Description: "Configure remote SSH access",
 	})
 
-	// Security section
-	l.addItem(Item{ID: "header-security", Kind: KindHeader, Section: "System", SubSection: "Security", Loaded: true})
-	for _, check := range config.SecurityChecks {
-		l.addItem(Item{
-			ID:          "security-" + check.Name,
-			Kind:        KindSecurity,
-			Section:     "System",
-			SubSection:  "Security",
-			Name:        check.Name,
-			Description: check.Description,
-			GoodWhen:    check.GoodWhen,
-		})
-	}
-
-	// Identity section
-	l.addItem(Item{ID: "header-identity", Kind: KindHeader, Section: "System", SubSection: "Identity", Loaded: true})
+	// Identity checks
 	for _, check := range config.IdentityChecks {
 		l.addItem(Item{
 			ID:          "identity-" + check.Name,
 			Kind:        KindIdentity,
-			Section:     "System",
+			Section:     "Setup",
 			SubSection:  "Identity",
 			Name:        check.Name,
 			Description: check.Description,
@@ -160,13 +212,12 @@ func (l *Loader) buildItems() {
 		})
 	}
 
-	// Tools sections
+	// ── Tools ─────────────────────────────────────────────────────────
 	for _, category := range config.ToolCategories {
 		tools := config.GetToolsByCategory(category)
 		if len(tools) == 0 {
 			continue
 		}
-		l.addItem(Item{ID: "header-tools-" + string(category), Kind: KindHeader, Section: "Tools", SubSection: string(category), Loaded: true})
 		for _, t := range tools {
 			l.addItem(Item{
 				ID:         "tool-" + t.Name,
@@ -177,42 +228,6 @@ func (l *Loader) buildItems() {
 				Method:     t.Method.String(),
 			})
 		}
-	}
-
-	// Process section
-	l.addItem(Item{ID: "header-process", Kind: KindHeader, Section: "Resources", SubSection: "Top Processes", Loaded: true})
-	for _, check := range config.ProcessChecks {
-		l.addItem(Item{
-			ID:         "process-" + check.Name,
-			Kind:       KindProcess,
-			Section:    "Resources",
-			SubSection: "Top Processes",
-			Name:       check.Name,
-		})
-	}
-
-	// Network section
-	l.addItem(Item{ID: "header-network", Kind: KindHeader, Section: "Resources", SubSection: "Network", Loaded: true})
-	for _, check := range config.NetworkChecks {
-		l.addItem(Item{
-			ID:         "network-" + check.Name,
-			Kind:       KindNetwork,
-			Section:    "Resources",
-			SubSection: "Network",
-			Name:       check.Name,
-		})
-	}
-
-	// Cache section
-	l.addItem(Item{ID: "header-cache", Kind: KindHeader, Section: "Resources", SubSection: "Caches & Cleanable", Loaded: true})
-	for _, check := range config.CacheChecks {
-		l.addItem(Item{
-			ID:         "cache-" + check.Name,
-			Kind:       KindCache,
-			Section:    "Resources",
-			SubSection: "Caches & Cleanable",
-			Name:       check.Name,
-		})
 	}
 }
 
@@ -264,13 +279,11 @@ func (l *Loader) Start() {
 	go func() {
 		defer wg.Done()
 		item := Item{
-			ID:          "setup-remote",
-			Kind:        KindSetup,
-			Name:        "remote",
-			Description: "Configure remote SSH access",
-			Loaded:      true,
+			ID:     "setup-remote",
+			Kind:   KindSetup,
+			Name:   "remote",
+			Loaded: true,
 		}
-
 		settings, err := config.LoadRemoteSettings()
 		if err == nil && config.ValidateRemoteSettings(settings) == nil {
 			item.Installed = true
@@ -278,7 +291,6 @@ func (l *Loader) Start() {
 			if settings.Hostname != "" {
 				detail += " " + settings.Hostname
 			}
-
 			if st, statusErr := config.RemoteStatusInfo(settings); statusErr == nil {
 				if st.Connected {
 					state := "connected"
@@ -288,18 +300,13 @@ func (l *Loader) Start() {
 					if st.IP != "" {
 						state += " " + st.IP
 					}
-					if st.KeepAwake {
-						state += " awake"
-					}
 					detail += " • " + state
 				} else if st.BackendState != "" {
 					detail += " • " + strings.ToLower(st.BackendState)
 				}
 			}
-
 			item.Detail = detail
 		}
-
 		l.updates <- UpdateMsg{ID: item.ID, Item: item}
 	}()
 
@@ -309,17 +316,11 @@ func (l *Loader) Start() {
 		go func(c config.SecurityCheck) {
 			defer wg.Done()
 			result := c.CheckFn()
-			item := Item{
-				ID:          "security-" + c.Name,
-				Kind:        KindSecurity,
-				Name:        c.Name,
-				Description: c.Description,
-				Loaded:      true,
-				Installed:   result.Installed,
-				Detail:      result.Detail,
-				GoodWhen:    c.GoodWhen,
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "security-" + c.Name, Item: Item{
+				ID: "security-" + c.Name, Kind: KindSecurity, Name: c.Name,
+				Description: c.Description, Loaded: true, Installed: result.Installed,
+				Detail: result.Detail, GoodWhen: c.GoodWhen,
+			}}
 		}(check)
 	}
 
@@ -329,17 +330,11 @@ func (l *Loader) Start() {
 		go func(c config.IdentityCheck) {
 			defer wg.Done()
 			result := c.CheckFn()
-			item := Item{
-				ID:          "identity-" + c.Name,
-				Kind:        KindIdentity,
-				Name:        c.Name,
-				Description: c.Description,
-				Loaded:      true,
-				Installed:   result.Installed,
-				Detail:      result.Detail,
-				GoodWhen:    c.GoodWhen,
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "identity-" + c.Name, Item: Item{
+				ID: "identity-" + c.Name, Kind: KindIdentity, Name: c.Name,
+				Description: c.Description, Loaded: true, Installed: result.Installed,
+				Detail: result.Detail, GoodWhen: c.GoodWhen,
+			}}
 		}(check)
 	}
 
@@ -349,17 +344,11 @@ func (l *Loader) Start() {
 		go func(t config.Tool) {
 			defer wg.Done()
 			result := t.Check()
-			item := Item{
-				ID:        "tool-" + t.Name,
-				Kind:      KindTool,
-				Name:      t.Name,
-				Loaded:    true,
-				Installed: result.Installed,
-				Version:   result.Version,
-				Status:    result.Status,
-				Method:    t.Method.String(),
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "tool-" + t.Name, Item: Item{
+				ID: "tool-" + t.Name, Kind: KindTool, Name: t.Name,
+				Loaded: true, Installed: result.Installed, Version: result.Version,
+				Status: result.Status, Method: t.Method.String(),
+			}}
 		}(t)
 	}
 
@@ -369,15 +358,10 @@ func (l *Loader) Start() {
 		go func(c config.ProcessCheck) {
 			defer wg.Done()
 			processes := c.CheckFn()
-			item := Item{
-				ID:        "process-" + c.Name,
-				Kind:      KindProcess,
-				Name:      c.Name,
-				Loaded:    true,
-				Available: len(processes) > 0,
-				Processes: processes,
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "process-" + c.Name, Item: Item{
+				ID: "process-" + c.Name, Kind: KindProcess, Name: c.Name,
+				Loaded: true, Available: len(processes) > 0, Processes: processes,
+			}}
 		}(check)
 	}
 
@@ -387,16 +371,10 @@ func (l *Loader) Start() {
 		go func(c config.ResourceCheck) {
 			defer wg.Done()
 			result := c.CheckFn()
-			item := Item{
-				ID:        "network-" + c.Name,
-				Kind:      KindNetwork,
-				Name:      c.Name,
-				Loaded:    true,
-				Available: result.Available,
-				Value:     result.Value,
-				Style:     result.Style,
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "network-" + c.Name, Item: Item{
+				ID: "network-" + c.Name, Kind: KindNetwork, Name: c.Name,
+				Loaded: true, Available: result.Available, Value: result.Value, Style: result.Style,
+			}}
 		}(check)
 	}
 
@@ -406,20 +384,13 @@ func (l *Loader) Start() {
 		go func(c config.DiskCheck) {
 			defer wg.Done()
 			result := c.Check()
-			item := Item{
-				ID:        "cache-" + c.Name,
-				Kind:      KindCache,
-				Name:      c.Name,
-				Loaded:    true,
-				Available: result.Available,
-				Value:     result.Value,
-				Style:     result.Style,
-			}
-			l.updates <- UpdateMsg{ID: item.ID, Item: item}
+			l.updates <- UpdateMsg{ID: "cache-" + c.Name, Item: Item{
+				ID: "cache-" + c.Name, Kind: KindCache, Name: c.Name,
+				Loaded: true, Available: result.Available, Value: result.Value, Style: result.Style,
+			}}
 		}(check)
 	}
 
-	// Close channel when all done
 	go func() {
 		wg.Wait()
 		close(l.updates)
@@ -440,7 +411,6 @@ func (l *Loader) WaitForUpdate() tea.Cmd {
 // loadSystemInfo loads system information
 func (l *Loader) loadSystemInfo() Item {
 	hostname, _ := os.Hostname()
-	// Shorten hostname (remove .local suffix and truncate if too long)
 	if idx := strings.Index(hostname, "."); idx > 0 {
 		hostname = hostname[:idx]
 	}

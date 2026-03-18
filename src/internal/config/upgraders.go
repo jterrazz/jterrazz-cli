@@ -58,7 +58,7 @@ func UpgradeAll() {
 // UpgradePackageManager upgrades a specific package manager
 func UpgradePackageManager(pm PackageManager) {
 	if !CommandExists(pm.RequiresCmd) {
-		fmt.Printf("%s %s not found, skipping\n", output.Yellow("Warning:"), pm.RequiresCmd)
+		fmt.Printf("%s %s not found, skipping\n", output.Cyan("Warning:"), pm.RequiresCmd)
 		return
 	}
 	pm.UpgradeFn()

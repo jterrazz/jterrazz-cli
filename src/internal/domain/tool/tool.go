@@ -46,10 +46,15 @@ func VersionFromBrewCask(cask string) func() string {
 		if err != nil {
 			return ""
 		}
-		// Output: "cask 1.2.3"
+		// Output: "cask 1.2.3" or "cask 0.34.1,HASH"
 		parts := strings.Fields(string(out))
 		if len(parts) >= 2 {
-			return parts[1]
+			version := parts[1]
+			// Strip build hash after comma (e.g. "0.34.1,01KGT7..." → "0.34.1")
+			if idx := strings.Index(version, ","); idx > 0 {
+				version = version[:idx]
+			}
+			return version
 		}
 		return ""
 	}

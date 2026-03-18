@@ -45,8 +45,7 @@ func init() {
 }
 
 func listAvailableTools() {
-	print.Info("Available tools:")
-	print.Empty()
+	print.SectionDivider("Available Tools")
 
 	// Check all tools in parallel
 	results := make(map[string]config.CheckResult, len(config.Tools))
