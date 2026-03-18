@@ -338,8 +338,8 @@ var ProcessChecks = []ProcessCheck{
 	{
 		Name: "Ports",
 		CheckFn: func() []ProcessInfo {
-			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n").Output()
-			return parseListeningPorts(out)
+			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-Fcn").Output()
+			return parseListeningPortsFcn(out)
 		},
 	},
 	{
@@ -369,47 +369,61 @@ var ProcessChecks = []ProcessCheck{
 	},
 }
 
-// parseListeningPorts parses lsof output into port → process entries
-func parseListeningPorts(out []byte) []ProcessInfo {
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	if len(lines) <= 1 {
-		return nil
-	}
+// System processes to hide from port listing
+var systemPortProcesses = map[string]bool{
+	"rapportd":      true, // macOS Rapport daemon
+	"ControlCenter": true, // macOS Control Center (AirPlay)
+	"IPNExtension":  true, // Tailscale (already shown in Network)
+	"mDNSResponder": true, // macOS DNS
+	"launchd":       true, // macOS init
+	"systemd":       true, // Linux init
+}
 
-	// Collect unique port → process mappings
+// parseListeningPortsFcn parses lsof -Fcn output into port → process entries
+func parseListeningPortsFcn(out []byte) []ProcessInfo {
+	lines := strings.Split(string(out), "\n")
+
 	type portEntry struct {
 		port    string
 		portNum int
 		cmd     string
 	}
 
+	var currentCmd string
 	seen := make(map[string]bool)
 	var entries []portEntry
 
-	for i := 1; i < len(lines); i++ {
-		fields := strings.Fields(lines[i])
-		if len(fields) < 9 {
+	for _, line := range lines {
+		if len(line) == 0 {
 			continue
 		}
-		cmd := fields[0]
-		addr := fields[8]
+		switch line[0] {
+		case 'c': // command name
+			currentCmd = line[1:]
+		case 'n': // network address (e.g. "*:8080" or "127.0.0.1:3000")
+			addr := line[1:]
+			if currentCmd == "" {
+				continue
+			}
+			// Skip system processes
+			if systemPortProcesses[currentCmd] {
+				continue
+			}
+			// Extract port
+			idx := strings.LastIndex(addr, ":")
+			if idx < 0 {
+				continue
+			}
+			port := addr[idx+1:]
+			key := port + "/" + currentCmd
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
 
-		port := ""
-		if idx := strings.LastIndex(addr, ":"); idx >= 0 {
-			port = addr[idx+1:]
+			num, _ := strconv.Atoi(port)
+			entries = append(entries, portEntry{port: port, portNum: num, cmd: currentCmd})
 		}
-		if port == "" {
-			continue
-		}
-
-		key := port + "/" + cmd
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-
-		num, _ := strconv.Atoi(port)
-		entries = append(entries, portEntry{port: port, portNum: num, cmd: cmd})
 	}
 
 	// Sort by port number

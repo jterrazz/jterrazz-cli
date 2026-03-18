@@ -26,8 +26,8 @@ func (m Model) renderContent() string {
 
 	sections := m.groupBySection()
 
-	// ── ACTIVITY ─────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("ACTIVITY", w))
+	// ── SYSTEM ───────────────────────────────────────────────────────
+	b.WriteString(sectionDivider("SYSTEM", w))
 	b.WriteString(m.renderActivity(sections, w))
 
 	// ── ENVIRONMENT ──────────────────────────────────────────────────
@@ -54,7 +54,7 @@ func (m Model) renderContent() string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func sectionDivider(title string, width int) string {
-	return "\n" + components.SectionHeader(title, width) + "\n"
+	return components.SectionHeader(title, width)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ func (m Model) renderActivity(sections sectionMap, w int) string {
 	innerW := w - 4 // box border + padding
 
 	// System info (left column)
-	sysItems := m.getSubsectionItems(sections, "Environment", "System")
+	sysItems := m.getSubsectionItems(sections, "Environment", "Health")
 	var sysRows []string
 	for _, item := range sysItems {
 		if item.Kind == status.KindProcess {
@@ -139,7 +139,7 @@ func (m Model) renderActivity(sections sectionMap, w int) string {
 		divider := theme.SectionBorder.Render("│")
 
 		activityRows = append(activityRows,
-			padTo(" "+theme.SubSection.Render("SYSTEM"), sysColW)+divider+" "+theme.SubSection.Render("GRAPHS"))
+			padTo(" "+theme.SubSection.Render("HEALTH"), sysColW)+divider+" "+theme.SubSection.Render("GRAPHS"))
 		activityRows = append(activityRows, padTo("", sysColW)+divider)
 
 		maxR := len(sysRows)
@@ -153,7 +153,7 @@ func (m Model) renderActivity(sections sectionMap, w int) string {
 		}
 	} else {
 		// Narrow: stacked
-		activityRows = append(activityRows, " "+theme.SubSection.Render("SYSTEM"))
+		activityRows = append(activityRows, " "+theme.SubSection.Render("HEALTH"))
 		activityRows = append(activityRows, "")
 		activityRows = append(activityRows, sysRows...)
 		activityRows = append(activityRows, "")
@@ -164,12 +164,12 @@ func (m Model) renderActivity(sections sectionMap, w int) string {
 
 	activityRows = append(activityRows, "") // breathing room
 
-	b.WriteString(components.SubsectionBox("Activity", activityRows, w))
+	b.WriteString(components.SubsectionBox("System", activityRows, w))
 	b.WriteString("\n")
 
 	// CPU | MEMORY in a box
-	cpuItems := m.getSubsectionItems(sections, "Activity", "CPU")
-	memItems := m.getSubsectionItems(sections, "Activity", "Memory")
+	cpuItems := m.getSubsectionItems(sections, "System", "CPU")
+	memItems := m.getSubsectionItems(sections, "System", "Memory")
 
 	barColW := innerW / 2
 	cpuRows := m.renderProcessBars(cpuItems, barColW-2)
@@ -204,6 +204,7 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 
 	// Network box
 	netItems := m.getSubsectionItems(sections, "Environment", "Network")
+	netInnerW := colWidth - 4
 	var netRows []string
 	for _, item := range netItems {
 		if item.Kind == status.KindNetwork && item.Loaded && item.Available {
@@ -214,14 +215,21 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 			} else if item.Name == "vpn" || item.Name == "dns" {
 				icon = " " + theme.Warning.Render("⚠")
 			}
-			netRows = append(netRows, " "+padName(item.Name, 12)+theme.Muted.Render(item.Value)+icon)
+			left := " " + item.Name
+			right := theme.Muted.Render(item.Value) + icon
+			gap := netInnerW - components.VisibleLen(left) - components.VisibleLen(right)
+			if gap < 1 {
+				gap = 1
+			}
+			netRows = append(netRows, left+strings.Repeat(" ", gap)+right)
 		} else if item.Kind == status.KindNetwork && !item.Loaded {
-			netRows = append(netRows, " "+padName(item.Name, 12)+m.loadingIndicator())
+			netRows = append(netRows, " "+item.Name+" "+m.loadingIndicator())
 		}
 	}
 
 	// Services box (Containers + Ports)
 	svcItems := m.getSubsectionItems(sections, "Environment", "Services")
+	svcInnerW := colWidth - 4
 	var svcRows []string
 	for _, item := range svcItems {
 		if item.Kind == status.KindProcess {
@@ -230,7 +238,15 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 				if item.Name == "Containers" {
 					prefix = " " + theme.ServiceRunning.Render("●") + " "
 				}
-				svcRows = append(svcRows, prefix+padName(p.Name, 14)+theme.Muted.Render(p.Value))
+				left := prefix + p.Name
+				right := theme.Muted.Render(p.Value)
+				leftLen := components.VisibleLen(left)
+				rightLen := components.VisibleLen(right)
+				gap := svcInnerW - leftLen - rightLen
+				if gap < 1 {
+					gap = 1
+				}
+				svcRows = append(svcRows, left+strings.Repeat(" ", gap)+right)
 			}
 		}
 	}
@@ -272,7 +288,7 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
 	}
 
-	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -400,7 +416,7 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
 	}
 
-	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -439,7 +455,7 @@ func (m Model) renderSetup(sections sectionMap, w int) string {
 
 	// Security box (from Environment/System — KindSecurity items)
 	var secItems []status.Item
-	for _, item := range m.getSubsectionItems(sections, "Environment", "System") {
+	for _, item := range m.getSubsectionItems(sections, "Environment", "Health") {
 		if item.Kind == status.KindSecurity {
 			secItems = append(secItems, item)
 		}
@@ -486,7 +502,7 @@ func (m Model) renderSetup(sections sectionMap, w int) string {
 		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
 	}
 
-	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -560,7 +576,7 @@ func (m Model) renderTools(sections sectionMap, w int) string {
 		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
 	}
 
-	return "\n" + lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -25,7 +25,7 @@ func SectionHeader(title string, width int) string {
 	}
 	line := theme.SectionBorder.Render(strings.Repeat("━", width))
 	label := " " + theme.SectionTitle.Render(strings.ToUpper(title))
-	return line + "\n" + label + "\n" + line
+	return line + "\n" + label + "\n" + line + "\n"
 }
 
 // =============================================================================

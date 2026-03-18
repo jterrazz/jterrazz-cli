@@ -9,14 +9,14 @@ type StatusSection struct {
 
 // StatusSections defines all status sections in display order
 var StatusSections = []StatusSection{
-	// Activity — live performance
-	{Title: "Activity", SubTitle: "CPU", RenderFn: nil},
-	{Title: "Activity", SubTitle: "Memory", RenderFn: nil},
+	// System — live performance
+	{Title: "System", SubTitle: "CPU", RenderFn: nil},
+	{Title: "System", SubTitle: "Memory", RenderFn: nil},
 
 	// Environment — network, services, system health
 	{Title: "Environment", SubTitle: "Network", RenderFn: nil},
 	{Title: "Environment", SubTitle: "Services", RenderFn: nil},
-	{Title: "Environment", SubTitle: "System", RenderFn: nil},
+	{Title: "Environment", SubTitle: "Health", RenderFn: nil},
 
 	// Workspace — dev state
 	{Title: "Workspace", SubTitle: "Git", RenderFn: nil},

@@ -104,14 +104,14 @@ func (l *Loader) buildItems() {
 	l.addItem(Item{
 		ID:      "sysinfo",
 		Kind:    KindSystemInfo,
-		Section: "Activity",
+		Section: "System",
 		Name:    "System Info",
 	})
 
 	// ── Activity ──────────────────────────────────────────────────────
 	// CPU and Memory process checks
 	for _, check := range config.ProcessChecks {
-		section := "Activity"
+		section := "System"
 		subsection := check.Name
 		// Services = Containers + Ports
 		if check.Name == "Containers" || check.Name == "Ports" {
@@ -121,7 +121,7 @@ func (l *Loader) buildItems() {
 		// Uptime goes to Environment/System
 		if check.Name == "Uptime" {
 			section = "Environment"
-			subsection = "System"
+			subsection = "Health"
 		}
 		// Git goes to Workspace
 		if check.Name == "Git" {
@@ -156,7 +156,7 @@ func (l *Loader) buildItems() {
 			ID:          "security-" + check.Name,
 			Kind:        KindSecurity,
 			Section:     "Environment",
-			SubSection:  "System",
+			SubSection:  "Health",
 			Name:        check.Name,
 			Description: check.Description,
 			GoodWhen:    check.GoodWhen,
