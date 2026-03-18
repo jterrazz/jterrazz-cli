@@ -18,29 +18,14 @@ const (
 // Section Header Box (thick borders)
 // =============================================================================
 
-// SectionHeader renders a section header with thick borders
-// ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-// ┃  SYSTEM                                                                ┃
-// ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+// SectionHeader renders a section divider with horizontal lines
 func SectionHeader(title string, width int) string {
-	innerWidth := width - 2 // for the borders
-	if innerWidth < 10 {
-		innerWidth = 10
+	if width < 10 {
+		width = 10
 	}
-
-	displayTitle := strings.ToUpper(title)
-	padding := innerWidth - len(displayTitle) - 2 // -2 for "  " prefix
-	if padding < 0 {
-		padding = 0
-	}
-
-	borderStyle := theme.SectionBorder
-
-	top := borderStyle.Render(theme.BoxThickTopLeft + strings.Repeat(theme.BoxThickHorizontal, innerWidth) + theme.BoxThickTopRight)
-	middle := borderStyle.Render(theme.BoxThickVertical) + "  " + theme.SectionTitle.Render(displayTitle) + strings.Repeat(" ", padding) + borderStyle.Render(theme.BoxThickVertical)
-	bottom := borderStyle.Render(theme.BoxThickBottomLeft + strings.Repeat(theme.BoxThickHorizontal, innerWidth) + theme.BoxThickBottomRight)
-
-	return top + "\n" + middle + "\n" + bottom
+	line := theme.SectionBorder.Render(strings.Repeat("━", width))
+	label := " " + theme.SectionTitle.Render(strings.ToUpper(title))
+	return line + "\n" + label + "\n" + line
 }
 
 // =============================================================================

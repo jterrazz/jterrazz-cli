@@ -54,16 +54,7 @@ func (m Model) renderContent() string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func sectionDivider(title string, width int) string {
-	line := strings.Repeat("━", width)
-	titleLine := " " + title
-	padding := width - len(titleLine)
-	if padding < 0 {
-		padding = 0
-	}
-	return "\n" +
-		theme.SectionBorder.Render(line) + "\n" +
-		theme.SectionTitle.Render(titleLine) + strings.Repeat(" ", padding) + "\n" +
-		theme.SectionBorder.Render(line) + "\n"
+	return "\n" + components.SectionHeader(title, width) + "\n"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

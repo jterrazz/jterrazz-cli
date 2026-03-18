@@ -47,13 +47,8 @@ func Installing(name string) {
 
 // SectionDivider prints a section divider matching the status TUI style
 func SectionDivider(title string) {
-	w := termWidth()
-	line := theme.SectionBorder.Render(strings.Repeat("━", w))
-	label := " " + theme.SectionTitle.Render(strings.ToUpper(title))
 	fmt.Println()
-	fmt.Println(line)
-	fmt.Println(label)
-	fmt.Println(line)
+	fmt.Println(components.SectionHeader(title, termWidth()))
 }
 
 // Category prints a category header (dimmed)
