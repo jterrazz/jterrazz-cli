@@ -34,6 +34,12 @@ var PackageManagers = []PackageManager{
 		RequiresCmd: "bun",
 		UpgradeFn:   upgradeBun,
 	},
+	{
+		Name:        "uv",
+		Flag:        "uv",
+		RequiresCmd: "uv",
+		UpgradeFn:   upgradeUV,
+	},
 }
 
 // GetPackageManagerByFlag returns a package manager by its flag name
@@ -102,6 +108,14 @@ func UpgradePackageByName(name string) error {
 			ExecCommand("bun", "update", "-g", pkg.Formula)
 			fmt.Printf("  %s %s upgraded\n", output.Green("✓"), name)
 			return nil
+		case InstallUV:
+			if !CommandExists("uv") {
+				return fmt.Errorf("uv not found")
+			}
+			fmt.Printf("  📥 Upgrading %s...\n", name)
+			ExecCommand("uv", "tool", "upgrade", pkg.Formula)
+			fmt.Printf("  %s %s upgraded\n", output.Green("✓"), name)
+			return nil
 		}
 	}
 
@@ -137,4 +151,10 @@ func upgradeBun() {
 	fmt.Println(output.Cyan("📦 Upgrading bun global packages..."))
 	ExecCommand("bun", "update", "-g")
 	fmt.Println(output.Green("  ✅ bun upgrade completed"))
+}
+
+func upgradeUV() {
+	fmt.Println(output.Cyan("📦 Upgrading uv tools..."))
+	ExecCommand("uv", "tool", "upgrade", "--all")
+	fmt.Println(output.Green("  ✅ uv upgrade completed"))
 }

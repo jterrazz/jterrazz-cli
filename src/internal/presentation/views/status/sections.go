@@ -753,8 +753,8 @@ func (m Model) renderTools(sections sectionMap, w int) string {
 	}
 	groups := []toolGroup{
 		{"Core", []string{"Package Managers", "Runtimes"}},
-		{"CLI", []string{"Terminal & Git", "DevOps", "AI"}},
-		{"Apps", []string{"GUI Apps", "Mac App Store"}},
+		{"CLI", []string{"Terminal", "Git", "System", "Deploy", "AI Agents", "AI Tooling"}},
+		{"Apps", []string{"Development", "Creative", "Communication", "Productivity", "AI Apps", "Browse", "Security", "Entertainment", "Utilities"}},
 	}
 
 	// Determine column count

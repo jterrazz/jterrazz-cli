@@ -65,6 +65,19 @@ var Scripts = []Script{
 		RunFn: runHushlogin,
 	},
 	{
+		Name:        "claude",
+		Description: "Install Claude Code settings (MCP servers)",
+		Category:    ScriptCategoryEditor,
+		CheckFn: func() CheckResult {
+			configPath := os.Getenv("HOME") + "/.claude/settings.json"
+			if _, err := os.Stat(configPath); err == nil {
+				return CheckResult{Installed: true, Detail: "~/.claude/settings.json"}
+			}
+			return CheckResult{}
+		},
+		RunFn: runClaudeConfig,
+	},
+	{
 		Name:         "ghostty",
 		Description:  "Install Ghostty terminal config",
 		Category:     ScriptCategoryTerminal,
@@ -253,6 +266,16 @@ func copyRepoConfig(repoRelPath, destPath string) error {
 		return fmt.Errorf("failed to write config file %s: %w", destPath, err)
 	}
 
+	return nil
+}
+
+func runClaudeConfig() error {
+	fmt.Println(out.Cyan("Setting up Claude Code config..."))
+	destPath := os.Getenv("HOME") + "/.claude/settings.json"
+	if err := copyRepoConfig("dotfiles/applications/claude/settings.json", destPath); err != nil {
+		return err
+	}
+	fmt.Println(out.Green("Done - Claude Code config installed"))
 	return nil
 }
 

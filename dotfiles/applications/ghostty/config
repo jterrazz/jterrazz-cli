@@ -1,4 +1,5 @@
-theme = TokyoNight
+theme = "TokyoNight Night"
+background = #000000
 window-padding-x = 16
 window-padding-y = 6
 window-height = 24
