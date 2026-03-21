@@ -46,6 +46,16 @@ type Script struct {
 	RequiresTool string // Tool that must be installed first (e.g., "openjdk")
 }
 
+// checkFileExists returns a CheckFn that reports installed if path exists.
+func checkFileExists(path, displayPath string) func() CheckResult {
+	return func() CheckResult {
+		if _, err := os.Stat(path); err == nil {
+			return CheckResult{Installed: true, Detail: displayPath}
+		}
+		return CheckResult{}
+	}
+}
+
 // Scripts is the single source of truth for all setup/configuration scripts.
 var Scripts = []Script{
 	// ==========================================================================
@@ -55,26 +65,14 @@ var Scripts = []Script{
 		Name:        "hushlogin",
 		Description: "Silence terminal login message",
 		Category:    ScriptCategoryTerminal,
-		CheckFn: func() CheckResult {
-			hushPath := os.Getenv("HOME") + "/.hushlogin"
-			if _, err := os.Stat(hushPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.hushlogin"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
 		RunFn: runHushlogin,
 	},
 	{
 		Name:        "claude",
 		Description: "Install Claude Code settings (MCP servers)",
 		Category:    ScriptCategoryEditor,
-		CheckFn: func() CheckResult {
-			configPath := os.Getenv("HOME") + "/.claude/settings.json"
-			if _, err := os.Stat(configPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.claude/settings.json"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(os.Getenv("HOME")+"/.claude/settings.json", "~/.claude/settings.json"),
 		RunFn: runClaudeConfig,
 	},
 	{
@@ -82,13 +80,9 @@ var Scripts = []Script{
 		Description:  "Install Ghostty terminal config",
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "ghostty",
-		CheckFn: func() CheckResult {
-			configPath := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty/config"
-			if _, err := os.Stat(configPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/Library/Application Support/com.mitchellh.ghostty/config"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(
+			os.Getenv("HOME")+"/Library/Application Support/com.mitchellh.ghostty/config",
+			"~/Library/Application Support/com.mitchellh.ghostty/config"),
 		RunFn: runGhosttyConfig,
 	},
 	{
@@ -96,13 +90,7 @@ var Scripts = []Script{
 		Description:  "Install tmux config",
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "tmux",
-		CheckFn: func() CheckResult {
-			configPath := os.Getenv("HOME") + "/.tmux.conf"
-			if _, err := os.Stat(configPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.tmux.conf"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
 		RunFn: runTmuxConfig,
 	},
 
@@ -115,7 +103,10 @@ var Scripts = []Script{
 		Category:     ScriptCategorySecurity,
 		RequiresTool: "gpg",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
+			out, err := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
+			if err != nil {
+				return CheckResult{}
+			}
 			if strings.TrimSpace(string(out)) == "true" {
 				return CheckResult{Installed: true, Detail: "commit.gpgsign=true"}
 			}
@@ -127,13 +118,7 @@ var Scripts = []Script{
 		Name:        "ssh",
 		Description: "Generate SSH key with Keychain integration",
 		Category:    ScriptCategorySecurity,
-		CheckFn: func() CheckResult {
-			sshKey := os.Getenv("HOME") + "/.ssh/id_ed25519"
-			if _, err := os.Stat(sshKey); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.ssh/id_ed25519"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
 		RunFn: runSSHSetup,
 	},
 	{
@@ -182,13 +167,7 @@ var Scripts = []Script{
 		Description:  "Install Zed editor config",
 		Category:     ScriptCategoryEditor,
 		RequiresTool: "zed",
-		CheckFn: func() CheckResult {
-			configPath := os.Getenv("HOME") + "/.config/zed/settings.json"
-			if _, err := os.Stat(configPath); err == nil {
-				return CheckResult{Installed: true, Detail: "~/.config/zed/settings.json"}
-			}
-			return CheckResult{}
-		},
+		CheckFn: checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
 		RunFn: runZedConfig,
 	},
 
@@ -269,45 +248,44 @@ func copyRepoConfig(repoRelPath, destPath string) error {
 	return nil
 }
 
-func runClaudeConfig() error {
-	fmt.Println(out.Cyan("Setting up Claude Code config..."))
-	destPath := os.Getenv("HOME") + "/.claude/settings.json"
-	if err := copyRepoConfig("dotfiles/applications/claude/settings.json", destPath); err != nil {
-		return err
-	}
-	fmt.Println(out.Green("Done - Claude Code config installed"))
-	return nil
-}
-
-func runGhosttyConfig() error {
-	fmt.Println(out.Cyan("Setting up Ghostty config..."))
-	destPath := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty/config"
-	if err := copyRepoConfig("dotfiles/applications/ghostty/config", destPath); err != nil {
-		return err
-	}
-	fmt.Println(out.Green("Done - Ghostty config installed"))
-	return nil
-}
-
-func runTmuxConfig() error {
-	fmt.Println(out.Cyan("Setting up tmux config..."))
-	configPath := os.Getenv("HOME") + "/.tmux.conf"
-	if err := copyRepoConfig("dotfiles/applications/tmux/tmux.conf", configPath); err != nil {
-		return err
-	}
-	if err := exec.Command("tmux", "source-file", configPath).Run(); err == nil {
-		fmt.Println(out.Green("Done - tmux config installed and reloaded"))
+// makeConfigInstaller creates a RunFn that copies a repo config file to a destination.
+func makeConfigInstaller(label, repoRelPath, destPath string) func() error {
+	return func() error {
+		fmt.Println(out.Cyan("Setting up " + label + " config..."))
+		if err := copyRepoConfig(repoRelPath, destPath); err != nil {
+			return err
+		}
+		fmt.Println(out.Green("Done - " + label + " config installed"))
 		return nil
 	}
-	fmt.Println(out.Green("Done - tmux config installed"))
+}
+
+var runClaudeConfig = makeConfigInstaller("Claude Code",
+	"dotfiles/applications/claude/settings.json",
+	os.Getenv("HOME")+"/.claude/settings.json")
+
+var runGhosttyConfig = makeConfigInstaller("Ghostty",
+	"dotfiles/applications/ghostty/config",
+	os.Getenv("HOME")+"/Library/Application Support/com.mitchellh.ghostty/config")
+
+func runTmuxConfig() error {
+	configPath := os.Getenv("HOME") + "/.tmux.conf"
+	install := makeConfigInstaller("tmux", "dotfiles/applications/tmux/tmux.conf", configPath)
+	if err := install(); err != nil {
+		return err
+	}
+	// Try to reload tmux if running
+	if err := exec.Command("tmux", "source-file", configPath).Run(); err == nil {
+		fmt.Println(out.Green("  tmux config reloaded"))
+	}
 	return nil
 }
 
 func runGPGSetup() error {
 	fmt.Println(out.Cyan("Setting up GPG for commit signing..."))
 
-	email := UserEmail
-	name := UserName
+	email := UserEmail()
+	name := UserName()
 
 	if !CommandExists("gpg") {
 		return fmt.Errorf("GPG not installed. Run: brew install gnupg")
@@ -372,9 +350,18 @@ func configureGitGPG(email string) {
 
 	fmt.Println("Configuring Git to use GPG key...")
 
-	exec.Command("git", "config", "--global", "user.signingkey", keyID).Run()
-	exec.Command("git", "config", "--global", "commit.gpgsign", "true").Run()
-	exec.Command("git", "config", "--global", "gpg.program", "gpg").Run()
+	if err := exec.Command("git", "config", "--global", "user.signingkey", keyID).Run(); err != nil {
+		out.Error("Failed to set git signing key: " + err.Error())
+		return
+	}
+	if err := exec.Command("git", "config", "--global", "commit.gpgsign", "true").Run(); err != nil {
+		out.Error("Failed to enable git commit signing: " + err.Error())
+		return
+	}
+	if err := exec.Command("git", "config", "--global", "gpg.program", "gpg").Run(); err != nil {
+		out.Error("Failed to set git gpg program: " + err.Error())
+		return
+	}
 
 	fmt.Println(out.Green("Git configured for commit signing"))
 
@@ -383,7 +370,9 @@ func configureGitGPG(email string) {
 	fmt.Println("----------------------------------------")
 	exportCmd := exec.Command("gpg", "--armor", "--export", email)
 	exportCmd.Stdout = os.Stdout
-	exportCmd.Run()
+	if err := exportCmd.Run(); err != nil {
+		out.Error("Failed to export GPG key: " + err.Error())
+	}
 	fmt.Println("----------------------------------------")
 	fmt.Println("Add at: https://github.com/settings/gpg/new")
 
@@ -397,7 +386,7 @@ func runSSHSetup() error {
 
 	sshDir := os.Getenv("HOME") + "/.ssh"
 	sshKey := sshDir + "/id_ed25519"
-	email := UserEmail
+	email := UserEmail()
 
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		return fmt.Errorf("failed to create .ssh directory: %w", err)
@@ -423,7 +412,7 @@ func runSSHSetup() error {
 	fmt.Println("Configuring SSH...")
 	sshConfig := sshDir + "/config"
 
-	existingConfig, _ := os.ReadFile(sshConfig)
+	existingConfig, _ := os.ReadFile(sshConfig) // ok if file doesn't exist yet
 	if !strings.Contains(string(existingConfig), "AddKeysToAgent yes") {
 		configContent := `
 Host *
@@ -432,11 +421,15 @@ Host *
   IdentityFile ~/.ssh/id_ed25519
 `
 		f, err := os.OpenFile(sshConfig, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		if err == nil {
-			f.WriteString(configContent)
-			f.Close()
-			fmt.Println(out.Green("SSH config updated"))
+		if err != nil {
+			return fmt.Errorf("failed to open SSH config: %w", err)
 		}
+		if _, err := f.WriteString(configContent); err != nil {
+			f.Close()
+			return fmt.Errorf("failed to write SSH config: %w", err)
+		}
+		f.Close()
+		fmt.Println(out.Green("SSH config updated"))
 	} else {
 		fmt.Println(out.Green("SSH config already configured"))
 	}
@@ -456,7 +449,10 @@ Host *
 	fmt.Println()
 	fmt.Println("Your public key (add to GitHub):")
 	fmt.Println("----------------------------------------")
-	pubKey, _ := os.ReadFile(sshKey + ".pub")
+	pubKey, err := os.ReadFile(sshKey + ".pub")
+	if err != nil {
+		return fmt.Errorf("failed to read public key: %w", err)
+	}
 	fmt.Println(string(pubKey))
 	fmt.Println("----------------------------------------")
 	fmt.Println("Add at: https://github.com/settings/ssh/new")
@@ -491,15 +487,9 @@ func runSpotlightExclude() error {
 	return nil
 }
 
-func runZedConfig() error {
-	fmt.Println(out.Cyan("Setting up Zed config..."))
-	destPath := os.Getenv("HOME") + "/.config/zed/settings.json"
-	if err := copyRepoConfig("dotfiles/applications/zed/settings.json", destPath); err != nil {
-		return err
-	}
-	fmt.Println(out.Green("Done - Zed config installed"))
-	return nil
-}
+var runZedConfig = makeConfigInstaller("Zed",
+	"dotfiles/applications/zed/settings.json",
+	os.Getenv("HOME")+"/.config/zed/settings.json")
 
 func runJavaHome() error {
 	fmt.Println(out.Cyan("Setting up JAVA_HOME..."))
@@ -549,7 +539,10 @@ func runDockSpacer() error {
 }
 
 func IsDNSProfileInstalled() bool {
-	out, _ := exec.Command("profiles", "-C", "-v").Output()
+	out, err := exec.Command("profiles", "-C", "-v").Output()
+	if err != nil {
+		return false
+	}
 	return strings.Contains(string(out), dnsProfileIdentifier)
 }
 

@@ -19,7 +19,10 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "filevault",
 		Description: "Full disk encryption",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("fdesetup", "status").Output()
+			out, err := exec.Command("fdesetup", "status").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			return CheckResult{Installed: strings.Contains(string(out), "FileVault is On")}
 		},
 		GoodWhen: true,
@@ -28,7 +31,10 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "firewall",
 		Description: "Block incoming connections",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
+			out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
 		},
 		GoodWhen: true,
@@ -37,7 +43,10 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "sip",
 		Description: "System Integrity Protection",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("csrutil", "status").Output()
+			out, err := exec.Command("csrutil", "status").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
 		},
 		GoodWhen: true,
@@ -46,7 +55,10 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "gatekeeper",
 		Description: "App signature verification",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("spctl", "--status").Output()
+			out, err := exec.Command("spctl", "--status").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
 		},
 		GoodWhen: true,
@@ -55,7 +67,10 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "remote-login",
 		Description: "SSH server disabled",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("launchctl", "list").Output()
+			out, err := exec.Command("launchctl", "list").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			sshRunning := strings.Contains(string(out), "com.openssh.sshd")
 			return CheckResult{Installed: !sshRunning}
 		},

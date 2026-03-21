@@ -1,10 +1,25 @@
 package config
 
-// User configuration - personalize these values for your setup
+// Default user configuration — override via ~/.jterrazz/config.json
 const (
-	// UserEmail is the email used for git commits and GPG keys
-	UserEmail = "admin@jterrazz.com"
-
-	// UserName is the name used for GPG key generation
-	UserName = "Jean-Baptiste Terrazzoni"
+	defaultUserEmail = "admin@jterrazz.com"
+	defaultUserName  = "Jean-Baptiste Terrazzoni"
 )
+
+// UserEmail returns the configured email (from config.json or default)
+func UserEmail() string {
+	cfg, err := LoadJRC()
+	if err == nil && cfg.UserEmail != "" {
+		return cfg.UserEmail
+	}
+	return defaultUserEmail
+}
+
+// UserName returns the configured name (from config.json or default)
+func UserName() string {
+	cfg, err := LoadJRC()
+	if err == nil && cfg.UserName != "" {
+		return cfg.UserName
+	}
+	return defaultUserName
+}

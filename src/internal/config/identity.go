@@ -20,9 +20,12 @@ var IdentityChecks = []IdentityCheck{
 		Name:        "git-email",
 		Description: "Git commit email",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("git", "config", "--global", "user.email").Output()
+			out, err := exec.Command("git", "config", "--global", "user.email").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			email := strings.TrimSpace(string(out))
-			return CheckResult{Installed: email == UserEmail, Detail: email}
+			return CheckResult{Installed: email == UserEmail(), Detail: email}
 		},
 		GoodWhen: true,
 	},
@@ -30,7 +33,10 @@ var IdentityChecks = []IdentityCheck{
 		Name:        "git-name",
 		Description: "Git commit author name",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("git", "config", "--global", "user.name").Output()
+			out, err := exec.Command("git", "config", "--global", "user.name").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			name := strings.TrimSpace(string(out))
 			return CheckResult{Installed: name != "", Detail: name}
 		},
@@ -40,7 +46,10 @@ var IdentityChecks = []IdentityCheck{
 		Name:        "git-signing",
 		Description: "Git commit signature",
 		CheckFn: func() CheckResult {
-			out, _ := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
+			out, err := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
+			if err != nil {
+				return NotInstalled()
+			}
 			return CheckResult{Installed: strings.TrimSpace(string(out)) == "true"}
 		},
 		GoodWhen: true,

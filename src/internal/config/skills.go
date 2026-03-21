@@ -17,7 +17,7 @@ type Skill struct {
 var FavoriteSkills = []Skill{
 	{"anthropics/skills", "frontend-design"},
 	{"expo/skills", "upgrading-expo"},
-	{"giuseppe-trisciuoglio/developer-kit", "shadcn-ui"},
+	{"shadcn-ui/ui", "shadcn"},
 	{"sickn33/antigravity-awesome-skills", "last30days"},
 	{"tobi/qmd", "qmd"},
 	{"vercel-labs/agent-skills", "vercel-react-best-practices"},
@@ -33,7 +33,7 @@ var SkillRepos = []SkillRepo{
 	{"coreyhaines31/marketingskills", "Marketing and SEO skills"},
 	{"expo/skills", "Expo and React Native mobile development"},
 	{"firecrawl/cli", "Web content extraction for AI agents"},
-	{"giuseppe-trisciuoglio/developer-kit", "Developer toolkit including shadcn-ui"},
+	{"shadcn-ui/ui", "Official shadcn/ui components and patterns"},
 	{"obra/superpowers", "Development workflow and productivity skills"},
 	{"remotion-dev/skills", "Remotion video creation skills"},
 	{"resend/email-best-practices", "Email development best practices"},

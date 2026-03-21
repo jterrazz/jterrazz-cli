@@ -1,5 +1,8 @@
 # Build
 /j
+dist/
+build/
+bin/
 
 # Test
 tests/e2e/j_test_bin
@@ -7,6 +10,9 @@ tests/e2e/j_test_bin
 # IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store

@@ -53,13 +53,16 @@ var Cleanables = []Cleanable{
 				{"docker", "network", "prune", "-f"},
 				{"docker", "builder", "prune", "-f"},
 			}
+			var lastErr error
 			for _, args := range commands {
 				cmd := exec.Command(args[0], args[1:]...)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
-				cmd.Run()
+				if err := cmd.Run(); err != nil {
+					lastErr = err
+				}
 			}
-			return nil
+			return lastErr
 		},
 	},
 	{
@@ -67,7 +70,7 @@ var Cleanables = []Cleanable{
 		Description: "Remove all Multipass instances",
 		RequiresCmd: "multipass",
 		CleanFn: func() error {
-			exec.Command("multipass", "delete", "--all").Run()
+			_ = exec.Command("multipass", "delete", "--all").Run() // ok if no instances
 			cmd := exec.Command("multipass", "purge")
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

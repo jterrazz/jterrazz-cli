@@ -1,4 +1,4 @@
-.PHONY: build install uninstall check test clean help
+.PHONY: build install uninstall check test clean fmt vet lint help
 
 # ==============================================================================
 # Configuration
@@ -37,8 +37,7 @@ install: build ## Build and install to ~/.jterrazz/bin
 	@rm $(BINARY)
 	@printf "$(GREEN)✓$(RESET) Installed $(INSTALL_PATH)\n"
 	@if [ -f "$(OLD_INSTALL)" ]; then \
-		sudo rm "$(OLD_INSTALL)"; \
-		printf "$(GREEN)✓$(RESET) Removed old $(OLD_INSTALL)\n"; \
+		rm "$(OLD_INSTALL)" 2>/dev/null || printf "$(DIM)Cannot remove $(OLD_INSTALL) — run: sudo rm $(OLD_INSTALL)$(RESET)\n"; \
 	fi
 	@if [ -f "$(OLD_CONFIG_DIR)/jrc.json" ] && [ ! -f "$(JTERRAZZ_DIR)/config.json" ]; then \
 		cp "$(OLD_CONFIG_DIR)/jrc.json" "$(JTERRAZZ_DIR)/config.json"; \
@@ -50,11 +49,11 @@ install: build ## Build and install to ~/.jterrazz/bin
 	fi
 	@if [ -f "$$HOME/.zshrc" ]; then \
 		if ! grep -q "$(ZSHRC_SOURCE)" "$$HOME/.zshrc"; then \
-			printf '\n# jterrazz-cli\nsource $(PWD)/$(ZSHRC_SOURCE)\n' >> "$$HOME/.zshrc"; \
+			printf '\n# jterrazz-cli\nsource $(CURDIR)/$(ZSHRC_SOURCE)\n' >> "$$HOME/.zshrc"; \
 			printf "$(GREEN)✓$(RESET) Added source to ~/.zshrc\n"; \
 		fi \
 	else \
-		printf "$(DIM)~/.zshrc not found — add manually: source $(PWD)/$(ZSHRC_SOURCE)$(RESET)\n"; \
+		printf "$(DIM)~/.zshrc not found — add manually: source $(CURDIR)/$(ZSHRC_SOURCE)$(RESET)\n"; \
 	fi
 	@printf "$(GREEN)✓$(RESET) Done — run $(DIM)source ~/.zshrc$(RESET) then $(DIM)j help$(RESET)\n"
 
@@ -66,8 +65,7 @@ uninstall: ## Remove binary from ~/.jterrazz/bin
 		printf "$(DIM)$(BINARY) not found at $(INSTALL_PATH)$(RESET)\n"; \
 	fi
 	@if [ -f "$(OLD_INSTALL)" ]; then \
-		sudo rm "$(OLD_INSTALL)"; \
-		printf "$(GREEN)✓$(RESET) Removed $(OLD_INSTALL)\n"; \
+		rm "$(OLD_INSTALL)" 2>/dev/null || printf "$(DIM)Cannot remove $(OLD_INSTALL) — run: sudo rm $(OLD_INSTALL)$(RESET)\n"; \
 	fi
 
 check: ## Verify installation
@@ -84,6 +82,18 @@ check: ## Verify installation
 
 test: ## Run tests
 	@go test ./src/...
+
+fmt: ## Format Go source files
+	@gofmt -w ./src/
+	@printf "$(GREEN)✓$(RESET) Formatted\n"
+
+vet: ## Run go vet
+	@go vet ./src/...
+	@printf "$(GREEN)✓$(RESET) Vet passed\n"
+
+lint: ## Run golangci-lint (install: brew install golangci-lint)
+	@golangci-lint run ./src/...
+	@printf "$(GREEN)✓$(RESET) Lint passed\n"
 
 clean: ## Remove build artifacts
 	@rm -f $(BINARY)

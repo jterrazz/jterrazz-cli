@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
@@ -128,7 +129,7 @@ func installToolByName(name string) {
 
 	print.Installing(t.Name)
 	if err := t.Install(); err != nil {
-		print.Error("Failed to install " + t.Name + ": " + err.Error())
+		print.Error(fmt.Sprintf("Failed to install %s: %v", t.Name, err))
 	} else {
 		print.Row(true, t.Name, "installed")
 		// Run post-install scripts

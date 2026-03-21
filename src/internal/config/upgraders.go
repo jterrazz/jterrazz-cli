@@ -134,27 +134,20 @@ func UpgradePackageByName(name string) error {
 // Upgrade Functions
 // =============================================================================
 
-func upgradeBrew() {
-	fmt.Println(output.Cyan("🍺 Upgrading Homebrew packages..."))
-	ExecCommand("brew", "update")
-	ExecCommand("brew", "upgrade")
-	fmt.Println(output.Green("  ✅ Homebrew upgrade completed"))
+// makeUpgrader creates a standard upgrade function that prints status and runs commands.
+func makeUpgrader(icon, label string, commands ...[]string) func() {
+	return func() {
+		fmt.Println(output.Cyan(icon + " Upgrading " + label + "..."))
+		for _, cmd := range commands {
+			ExecCommand(cmd[0], cmd[1:]...)
+		}
+		fmt.Println(output.Green("  ✅ " + label + " upgrade completed"))
+	}
 }
 
-func upgradeNpm() {
-	fmt.Println(output.Cyan("📦 Upgrading npm global packages..."))
-	ExecCommand("npm", "update", "-g")
-	fmt.Println(output.Green("  ✅ npm upgrade completed"))
-}
-
-func upgradeBun() {
-	fmt.Println(output.Cyan("📦 Upgrading bun global packages..."))
-	ExecCommand("bun", "update", "-g")
-	fmt.Println(output.Green("  ✅ bun upgrade completed"))
-}
-
-func upgradeUV() {
-	fmt.Println(output.Cyan("📦 Upgrading uv tools..."))
-	ExecCommand("uv", "tool", "upgrade", "--all")
-	fmt.Println(output.Green("  ✅ uv upgrade completed"))
-}
+var (
+	upgradeBrew = makeUpgrader("🍺", "Homebrew packages", []string{"brew", "update"}, []string{"brew", "upgrade"})
+	upgradeNpm  = makeUpgrader("📦", "npm global packages", []string{"npm", "update", "-g"})
+	upgradeBun  = makeUpgrader("📦", "bun global packages", []string{"bun", "update", "-g"})
+	upgradeUV   = makeUpgrader("📦", "uv tools", []string{"uv", "tool", "upgrade", "--all"})
+)

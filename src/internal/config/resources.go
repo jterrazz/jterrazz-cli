@@ -89,7 +89,10 @@ var NetworkChecks = []ResourceCheck{
 	{
 		Name: "local ip",
 		CheckFn: func() ResourceResult {
-			out, _ := exec.Command("ipconfig", "getifaddr", "en0").Output()
+			out, err := exec.Command("ipconfig", "getifaddr", "en0").Output()
+			if err != nil {
+				return ResourceResult{Available: false}
+			}
 			ip := strings.TrimSpace(string(out))
 			if ip != "" {
 				return ResourceResult{Value: ip, Style: "muted", Available: true}
@@ -117,7 +120,8 @@ var NetworkChecks = []ResourceCheck{
 			var vpnNames []string
 
 			// Check system VPN connections (Passepartout, IKEv2, IPSec, etc.)
-			out, _ := exec.Command("scutil", "--nc", "list").Output()
+			out, err := exec.Command("scutil", "--nc", "list").Output()
+			_ = err // scutil may fail if no network configs exist
 			for _, line := range strings.Split(string(out), "\n") {
 				if strings.Contains(line, "(Connected)") {
 					if idx := strings.LastIndex(line, `"`); idx > 0 {
@@ -148,7 +152,8 @@ var NetworkChecks = []ResourceCheck{
 			if IsDNSProfileInstalled() {
 				return ResourceResult{Value: "Quad9 (encrypted)", Style: "success", Available: true}
 			}
-			out, _ := exec.Command("scutil", "--dns").Output()
+			out, err := exec.Command("scutil", "--dns").Output()
+			_ = err // dns resolver may not be available
 			var servers []string
 			for _, line := range strings.Split(string(out), "\n") {
 				if strings.Contains(line, "nameserver[") {
@@ -200,7 +205,10 @@ var CacheChecks = []DiskCheck{
 			if !CommandExists("docker") {
 				return ResourceResult{Available: false}
 			}
-			out, _ := exec.Command("docker", "system", "df", "--format", "{{.Size}}").Output()
+			out, err := exec.Command("docker", "system", "df", "--format", "{{.Size}}").Output()
+			if err != nil {
+				return ResourceResult{Available: false}
+			}
 			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 			var total int64
 			for _, line := range lines {
@@ -351,7 +359,10 @@ var ProcessChecks = []ProcessCheck{
 	{
 		Name: "Ports",
 		CheckFn: func() []ProcessInfo {
-			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-Fcn").Output()
+			out, err := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-Fcn").Output()
+			if err != nil {
+				return nil
+			}
 			return parseListeningPortsFcn(out)
 		},
 	},
@@ -874,7 +885,8 @@ func GetDockerStatus() (DockerStatus, error) {
 func getUptimeInfo() []ProcessInfo {
 	var result []ProcessInfo
 
-	uptimeOut, _ := exec.Command("uptime").Output()
+	uptimeOut, err := exec.Command("uptime").Output()
+	_ = err // uptime may not be available on all platforms
 	uptimeStr := strings.TrimSpace(string(uptimeOut))
 	if uptimeStr != "" {
 		if idx := strings.Index(uptimeStr, "up "); idx >= 0 {
