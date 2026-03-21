@@ -1134,6 +1134,11 @@ func (t Tool) Check() CheckResult {
 		result.Version = t.VersionFn()
 	}
 
+	// Fallback: for bun packages, get version from bun global list if VersionFn returned nothing
+	if result.Version == "" && t.Method == InstallBun && t.Formula != "" {
+		result.Version = tool.VersionFromBunGlobal(t.Formula)()
+	}
+
 	return result
 }
 

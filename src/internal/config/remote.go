@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -62,13 +63,36 @@ type RemoteStatus struct {
 	KeepAwake    bool
 }
 
+type tailscalePeer struct {
+	HostName     string   `json:"HostName"`
+	DNSName      string   `json:"DNSName"`
+	TailscaleIPs []string `json:"TailscaleIPs"`
+	Online       bool     `json:"Online"`
+	ExitNode     bool     `json:"ExitNode"`
+	OS           string   `json:"OS"`
+}
+
 type tailscaleStatus struct {
-	BackendState string `json:"BackendState"`
-	Self         *struct {
-		HostName    string   `json:"HostName"`
-		DNSName     string   `json:"DNSName"`
-		TailscaleIP []string `json:"TailscaleIPs"`
-	} `json:"Self"`
+	BackendState string         `json:"BackendState"`
+	Self         *tailscalePeer `json:"Self"`
+	Peer         map[string]*tailscalePeer `json:"Peer"`
+}
+
+// TailscalePeerInfo describes a peer on the tailnet.
+type TailscalePeerInfo struct {
+	Name   string
+	IP     string
+	Online bool
+}
+
+// TailscaleFullStatus is the enriched status returned by GetTailscaleFullStatus.
+type TailscaleFullStatus struct {
+	Connected    bool
+	BackendState string
+	Mode         RemoteMode
+	IP           string
+	ExitNode     string // hostname of active exit node, or ""
+	Peers        []TailscalePeerInfo
 }
 
 func defaultRemoteSettings() RemoteSettings {
@@ -729,10 +753,91 @@ func RemoteStatusInfo(settings RemoteSettings) (RemoteStatus, error) {
 		if result.Hostname == "" {
 			result.Hostname = st.Self.DNSName
 		}
-		if len(st.Self.TailscaleIP) > 0 {
-			result.IP = st.Self.TailscaleIP[0]
+		if len(st.Self.TailscaleIPs) > 0 {
+			result.IP = st.Self.TailscaleIPs[0]
 		}
 	}
+
+	return result, nil
+}
+
+// GetTailscaleFullStatus returns enriched Tailscale status including peers.
+// It tries configured remote settings first, then falls back to a direct CLI call.
+func GetTailscaleFullStatus() (TailscaleFullStatus, error) {
+	var mode RemoteMode
+	var st tailscaleStatus
+
+	if settings, err := LoadRemoteSettings(); err == nil && ValidateRemoteSettings(settings) == nil {
+		settings = normalizeRemoteSettings(settings)
+		mode = settings.Mode
+		if mode == RemoteModeAuto {
+			mode = detectActiveMode()
+		}
+		st, err = getTailscaleStatus(mode)
+		if err != nil {
+			return TailscaleFullStatus{}, err
+		}
+	} else {
+		// No configured settings — try direct CLI
+		var err error
+		st, err = getTailscaleStatus(RemoteModeAuto)
+		if err != nil {
+			return TailscaleFullStatus{}, err
+		}
+		mode = RemoteModeAuto
+	}
+
+	result := TailscaleFullStatus{
+		BackendState: st.BackendState,
+		Connected:    st.BackendState == "Running",
+		Mode:         mode,
+	}
+
+	if st.Self != nil {
+		if len(st.Self.TailscaleIPs) > 0 {
+			result.IP = st.Self.TailscaleIPs[0]
+		}
+	}
+
+	// Find active exit node and collect peers
+	for _, peer := range st.Peer {
+		if peer == nil {
+			continue
+		}
+		ip := ""
+		if len(peer.TailscaleIPs) > 0 {
+			ip = peer.TailscaleIPs[0]
+		}
+		name := peer.HostName
+		if name == "" || name == "localhost" {
+			// Use DNSName, strip trailing dot and tailnet suffix for readability
+			name = strings.TrimSuffix(peer.DNSName, ".")
+			if parts := strings.SplitN(name, ".", 2); len(parts) > 0 {
+				name = parts[0]
+			}
+		}
+		if name == "" {
+			name = "unknown"
+		}
+
+		if peer.ExitNode {
+			result.ExitNode = name
+		}
+
+		result.Peers = append(result.Peers, TailscalePeerInfo{
+			Name:   name,
+			IP:     ip,
+			Online: peer.Online,
+		})
+	}
+
+	// Sort peers: online first, then alphabetical
+	sort.Slice(result.Peers, func(i, j int) bool {
+		if result.Peers[i].Online != result.Peers[j].Online {
+			return result.Peers[i].Online
+		}
+		return result.Peers[i].Name < result.Peers[j].Name
+	})
 
 	return result, nil
 }

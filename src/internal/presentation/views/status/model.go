@@ -209,6 +209,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			existing.Style = msg.Item.Style
 			existing.Available = msg.Item.Available
 			existing.Processes = msg.Item.Processes
+			existing.TailscaleStatus = msg.Item.TailscaleStatus
+			existing.ProjectGroups = msg.Item.ProjectGroups
 			m.items[msg.ID] = existing
 		} else {
 			m.items[msg.ID] = msg.Item

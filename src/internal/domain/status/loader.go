@@ -23,6 +23,8 @@ const (
 	KindTool
 	KindProcess
 	KindNetwork
+	KindTailscale
+	KindRepository
 	KindCache
 	KindSystemInfo
 )
@@ -50,6 +52,12 @@ type Item struct {
 
 	// Process data (for KindProcess items)
 	Processes []config.ProcessInfo
+
+	// Tailscale data (for KindTailscale items)
+	TailscaleStatus *config.TailscaleFullStatus
+
+	// Repository data (for KindRepository items)
+	ProjectGroups []config.ProjectGroup
 }
 
 // UpdateMsg is sent when a status item finishes loading
@@ -123,12 +131,6 @@ func (l *Loader) buildItems() {
 			section = "Environment"
 			subsection = "Health"
 		}
-		// Git goes to Workspace
-		if check.Name == "Git" {
-			section = "Workspace"
-			subsection = "Git"
-		}
-
 		l.addItem(Item{
 			ID:         "process-" + check.Name,
 			Kind:       KindProcess,
@@ -137,6 +139,15 @@ func (l *Loader) buildItems() {
 			Name:       check.Name,
 		})
 	}
+
+	// Repository scan (replaces old Git process check)
+	l.addItem(Item{
+		ID:         "repositories",
+		Kind:       KindRepository,
+		Section:    "Workspace",
+		SubSection: "Repositories",
+		Name:       "repositories",
+	})
 
 	// ── Environment ───────────────────────────────────────────────────
 	// Network checks
@@ -149,6 +160,15 @@ func (l *Loader) buildItems() {
 			Name:       check.Name,
 		})
 	}
+
+	// Tailscale check
+	l.addItem(Item{
+		ID:         "tailscale",
+		Kind:       KindTailscale,
+		Section:    "Environment",
+		SubSection: "Tailscale",
+		Name:       "tailscale",
+	})
 
 	// Security checks → Environment/System
 	for _, check := range config.SecurityChecks {
@@ -377,6 +397,34 @@ func (l *Loader) Start() {
 			}}
 		}(check)
 	}
+
+	// Tailscale check
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		item := Item{
+			ID:     "tailscale",
+			Kind:   KindTailscale,
+			Name:   "tailscale",
+			Loaded: true,
+		}
+		if st, err := config.GetTailscaleFullStatus(); err == nil {
+			item.Available = true
+			item.TailscaleStatus = &st
+		}
+		l.updates <- UpdateMsg{ID: item.ID, Item: item}
+	}()
+
+	// Repository scan
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		groups := config.ScanAllRepos()
+		l.updates <- UpdateMsg{ID: "repositories", Item: Item{
+			ID: "repositories", Kind: KindRepository, Name: "repositories",
+			Loaded: true, Available: len(groups) > 0, ProjectGroups: groups,
+		}}
+	}()
 
 	// Cache checks
 	for _, check := range config.CacheChecks {

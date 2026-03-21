@@ -45,6 +45,8 @@ const (
 	BoxRoundedBottomRight = "╯"
 	BoxRoundedHorizontal  = "─"
 	BoxRoundedVertical    = "│"
+	BoxRoundedTeeLeft     = "├"
+	BoxRoundedTeeRight    = "┤"
 )
 
 // Thick box (for section headers)

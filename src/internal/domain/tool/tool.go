@@ -72,6 +72,38 @@ func VersionFromAppPlist(appName string) func() string {
 	}
 }
 
+// VersionFromBunGlobal creates a version func that gets version from bun global packages
+func VersionFromBunGlobal(pkg string) func() string {
+	return func() string {
+		out, err := exec.Command("bun", "pm", "ls", "-g").Output()
+		if err != nil {
+			return ""
+		}
+		// Output lines: "├── package@version" or "└── package@version"
+		for _, line := range strings.Split(string(out), "\n") {
+			// Find the package name after tree chars (├── or └──)
+			idx := strings.Index(line, "── ")
+			if idx < 0 {
+				continue
+			}
+			entry := strings.TrimSpace(line[idx+len("── "):])
+			// entry is like "qmd@1.2.3" or "qmd@github:tobi/qmd#hash"
+			atIdx := strings.LastIndex(entry, "@")
+			if atIdx <= 0 {
+				continue
+			}
+			name := entry[:atIdx]
+			version := entry[atIdx+1:]
+			if name == pkg {
+				// Strip "github:" prefix for git refs, show as short hash
+				version = strings.TrimPrefix(version, "github:")
+				return version
+			}
+		}
+		return ""
+	}
+}
+
 // CommandExists checks if a command exists in PATH
 func CommandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)

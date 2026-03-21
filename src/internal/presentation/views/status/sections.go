@@ -2,6 +2,7 @@ package status
 
 import (
 	"fmt"
+	"os/exec"
 	"sort"
 	"strings"
 
@@ -42,8 +43,8 @@ func (m Model) renderContent() string {
 	b.WriteString(sectionDivider("SETUP", w))
 	b.WriteString(m.renderSetup(sections, w))
 
-	// ── TOOLS ────────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("TOOLS", w))
+	// ── SOFTWARE ─────────────────────────────────────────────────────
+	b.WriteString(sectionDivider("SOFTWARE", w))
 	b.WriteString(m.renderTools(sections, w))
 
 	return b.String()
@@ -209,14 +210,13 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 	for _, item := range netItems {
 		if item.Kind == status.KindNetwork && item.Loaded && item.Available {
 			icon := ""
-			if (item.Name == "vpn" && strings.Contains(item.Value, "Tailscale")) ||
-				(item.Name == "dns" && item.Style == "success") {
-				icon = " " + components.Badge(true)
+			if (item.Name == "vpn" || item.Name == "dns") && item.Style == "success" {
+				icon = components.Badge(true) + " "
 			} else if item.Name == "vpn" || item.Name == "dns" {
-				icon = " " + theme.Warning.Render("⚠")
+				icon = theme.Warning.Render("⚠") + " "
 			}
 			left := " " + item.Name
-			right := theme.Muted.Render(item.Value) + icon
+			right := icon + theme.Muted.Render(item.Value)
 			gap := netInnerW - components.VisibleLen(left) - components.VisibleLen(right)
 			if gap < 1 {
 				gap = 1
@@ -224,6 +224,89 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 			netRows = append(netRows, left+strings.Repeat(" ", gap)+right)
 		} else if item.Kind == status.KindNetwork && !item.Loaded {
 			netRows = append(netRows, " "+item.Name+" "+m.loadingIndicator())
+		}
+	}
+
+	// Tailscale box
+	tsItems := m.getSubsectionItems(sections, "Environment", "Tailscale")
+	tsInnerW := colWidth - 4
+	var tsBox string
+	for _, item := range tsItems {
+		if item.Kind == status.KindTailscale && item.Loaded && item.Available && item.TailscaleStatus != nil {
+			st := item.TailscaleStatus
+
+			// Top rows: status, ip, exit node
+			var tsTopRows []string
+
+			// Status row — connected is neutral (mesh only, not privacy)
+			statusVal := strings.ToLower(st.BackendState)
+			if st.Mode != "" {
+				statusVal += " (" + string(st.Mode) + ")"
+			}
+			left := " status"
+			right := theme.Muted.Render(statusVal)
+			gap := tsInnerW - components.VisibleLen(left) - components.VisibleLen(right)
+			if gap < 1 {
+				gap = 1
+			}
+			tsTopRows = append(tsTopRows, left+strings.Repeat(" ", gap)+right)
+
+			// IP row
+			if st.IP != "" {
+				left = " ip"
+				right = theme.Muted.Render(st.IP)
+				gap = tsInnerW - components.VisibleLen(left) - components.VisibleLen(right)
+				if gap < 1 {
+					gap = 1
+				}
+				tsTopRows = append(tsTopRows, left+strings.Repeat(" ", gap)+right)
+			}
+
+			// Exit node row — ✓ only when active (real VPN), ⚠ when none (traffic exposed)
+			exitVal := "none"
+			exitIcon := theme.Warning.Render("⚠") + " "
+			if st.ExitNode != "" {
+				exitVal = st.ExitNode
+				exitIcon = components.Badge(true) + " "
+			}
+			left = " exit node"
+			right = exitIcon + theme.Muted.Render(exitVal)
+			gap = tsInnerW - components.VisibleLen(left) - components.VisibleLen(right)
+			if gap < 1 {
+				gap = 1
+			}
+			tsTopRows = append(tsTopRows, left+strings.Repeat(" ", gap)+right)
+
+			// Peer rows
+			var tsPeerRows []string
+			if len(st.Peers) > 0 {
+				for _, peer := range st.Peers {
+					peerName := " " + peer.Name
+					peerIP := peer.IP
+					onlineLabel := "offline"
+					onlineIcon := ""
+					if peer.Online {
+						onlineLabel = "online"
+						onlineIcon = " " + components.Badge(true)
+					}
+
+					// Format: " name          100.98.133.10 ✓ online"
+					rightPart := theme.Muted.Render(peerIP) + onlineIcon + " " + theme.Muted.Render(onlineLabel)
+					gap = tsInnerW - components.VisibleLen(peerName) - components.VisibleLen(rightPart)
+					if gap < 1 {
+						gap = 1
+					}
+					tsPeerRows = append(tsPeerRows, peerName+strings.Repeat(" ", gap)+rightPart)
+				}
+			} else {
+				tsPeerRows = append(tsPeerRows, " "+theme.Muted.Render("no peers"))
+			}
+
+			tsBox = components.SubsectionBoxWithSeparator("Tailscale", tsTopRows, tsPeerRows, colWidth)
+		} else if item.Kind == status.KindTailscale && !item.Loaded {
+			tsBox = components.SubsectionBox("Tailscale", []string{" " + m.loadingIndicator()}, colWidth)
+		} else if item.Kind == status.KindTailscale && item.Loaded && !item.Available {
+			tsBox = components.SubsectionBox("Tailscale", []string{" " + theme.Muted.Render("not available")}, colWidth)
 		}
 	}
 
@@ -257,6 +340,9 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 	var boxes []string
 	if len(netRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Network", netRows, colWidth))
+	}
+	if tsBox != "" {
+		boxes = append(boxes, tsBox)
 	}
 	if len(svcRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Services", svcRows, colWidth))
@@ -303,29 +389,59 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 	colWidth := w / numCols
 	innerW := colWidth - 4
 
-	// Git box
-	gitItems := m.getSubsectionItems(sections, "Workspace", "Git")
-	var gitRows []string
-	for _, item := range gitItems {
-		if item.Kind == status.KindProcess {
+	// Repositories box (tree-style)
+	repoItems := m.getSubsectionItems(sections, "Workspace", "Repositories")
+	repoInnerW := colWidth - 4
+	var repoRows []string
+	for _, item := range repoItems {
+		if item.Kind == status.KindRepository {
 			if !item.Loaded {
-				gitRows = append(gitRows, " "+m.loadingIndicator())
-			} else if len(item.Processes) == 0 {
-				gitRows = append(gitRows, " "+theme.Success.Render("all clean"))
+				repoRows = append(repoRows, " "+m.loadingIndicator())
+			} else if !item.Available {
+				repoRows = append(repoRows, " "+theme.Muted.Render("no repositories found"))
 			} else {
-				nameW := 0
-				for _, p := range item.Processes {
-					if len(p.Name) > nameW {
-						nameW = len(p.Name)
+				// Find max repo name width for alignment
+				maxNameW := 0
+				for _, group := range item.ProjectGroups {
+					for _, repo := range group.Repos {
+						if len(repo.Name) > maxNameW {
+							maxNameW = len(repo.Name)
+						}
 					}
 				}
-				for _, p := range item.Processes {
-					valLen := components.VisibleLen(p.Value)
-					gap := innerW - 1 - nameW - valLen
-					if gap < 1 {
-						gap = 1
+
+				for gi, group := range item.ProjectGroups {
+					if gi > 0 {
+						repoRows = append(repoRows, "") // spacing between groups
 					}
-					gitRows = append(gitRows, " "+fmt.Sprintf("%-*s", nameW, p.Name)+strings.Repeat(" ", gap)+theme.Muted.Render(p.Value))
+					// Project header
+					repoRows = append(repoRows, " "+theme.SubSection.Render(group.Prefix+"/"))
+
+					for ri, repo := range group.Repos {
+						// Tree connector
+						connector := "├─"
+						if ri == len(group.Repos)-1 {
+							connector = "└─"
+						}
+
+						branchStyle := theme.Muted
+
+						// Status
+						var statusStr string
+						if repo.Clean {
+							statusStr = theme.Success.Render("clean")
+						} else {
+							statusStr = theme.Warning.Render(fmt.Sprintf("%d changed", repo.ChangeCount))
+						}
+
+						left := "   " + theme.Muted.Render(connector) + " " + fmt.Sprintf("%-*s", maxNameW, repo.Name)
+						right := statusStr + "  " + branchStyle.Render(repo.Branch)
+						gap := repoInnerW - components.VisibleLen(left) - components.VisibleLen(right)
+						if gap < 1 {
+							gap = 1
+						}
+						repoRows = append(repoRows, left+strings.Repeat(" ", gap)+right)
+					}
 				}
 			}
 		}
@@ -383,8 +499,8 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 	}
 
 	var boxes []string
-	if len(gitRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Dirty Repos", gitRows, colWidth))
+	if len(repoRows) > 0 {
+		boxes = append(boxes, components.SubsectionBox("Repositories", repoRows, colWidth))
 	}
 	if len(diskRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Disk Usage", diskRows, colWidth))
@@ -515,7 +631,16 @@ func (m Model) renderTools(sections sectionMap, w int) string {
 		return ""
 	}
 
-	toolOrder := []string{"Package Managers", "Runtimes", "DevOps", "AI", "Terminal & Git", "GUI Apps", "Mac App Store"}
+	// 3 groups: Core (foundation), CLI (command-line workflow), Apps (visual applications)
+	type toolGroup struct {
+		label      string
+		categories []string
+	}
+	groups := []toolGroup{
+		{"Core", []string{"Package Managers", "Runtimes"}},
+		{"CLI", []string{"Terminal & Git", "DevOps", "AI"}},
+		{"Apps", []string{"GUI Apps", "Mac App Store"}},
+	}
 
 	// Determine column count
 	numCols := 3
@@ -527,56 +652,79 @@ func (m Model) renderTools(sections sectionMap, w int) string {
 
 	colWidth := w / numCols
 
-	// Build boxes
-	var boxes []string
-	for _, sub := range toolOrder {
-		items, ok := subsections[sub]
-		if !ok || len(items) == 0 {
+	// Build boxes for a set of categories
+	buildBoxes := func(categories []string) []string {
+		var boxes []string
+		for _, sub := range categories {
+			items, ok := subsections[sub]
+			if !ok || len(items) == 0 {
+				continue
+			}
+			nameW := 0
+			for _, item := range items {
+				if len(item.Name) > nameW {
+					nameW = len(item.Name)
+				}
+			}
+			innerW := colWidth - 4
+			var rows []string
+			for _, item := range items {
+				rows = append(rows, m.renderToolRowCompact(item, nameW, innerW))
+			}
+			boxes = append(boxes, components.SubsectionBox(sub, rows, colWidth))
+		}
+		return boxes
+	}
+
+	// Masonry layout for a set of boxes
+	masonryLayout := func(boxes []string) string {
+		if len(boxes) == 0 {
+			return ""
+		}
+		nc := numCols
+		if nc > len(boxes) {
+			nc = len(boxes)
+		}
+		columns := make([][]string, nc)
+		colHeights := make([]int, nc)
+		for _, box := range boxes {
+			shortest := 0
+			for i := 1; i < nc; i++ {
+				if colHeights[i] < colHeights[shortest] {
+					shortest = i
+				}
+			}
+			columns[shortest] = append(columns[shortest], box)
+			colHeights[shortest] += strings.Count(box, "\n") + 1
+		}
+		var renderedCols []string
+		for _, col := range columns {
+			renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
+		}
+		return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	}
+
+	var b strings.Builder
+	for _, group := range groups {
+		boxes := buildBoxes(group.categories)
+		if len(boxes) == 0 {
 			continue
 		}
-		nameW := 0
-		for _, item := range items {
-			if len(item.Name) > nameW {
-				nameW = len(item.Name)
-			}
+		// Dotted separator: Label · · · · · · · · · · · · · · ·
+		label := " " + group.label + " "
+		labelLen := len(label)
+		remaining := w - labelLen
+		if remaining < 2 {
+			remaining = 2
 		}
-		innerW := colWidth - 4 // box border + padding
-		var rows []string
-		for _, item := range items {
-			rows = append(rows, m.renderToolRowCompact(item, nameW, innerW))
-		}
-		boxes = append(boxes, components.SubsectionBox(sub, rows, colWidth))
+		dots := remaining / 2
+		separator := theme.Muted.Render("·") + theme.SubSection.Render(label) +
+			theme.Muted.Render(strings.Repeat(" ·", dots))
+		b.WriteString(separator + "\n")
+		b.WriteString(masonryLayout(boxes))
 	}
 
-	if len(boxes) == 0 {
-		return ""
-	}
-
-	if numCols > len(boxes) {
-		numCols = len(boxes)
-	}
-
-	// Masonry pack into columns
-	columns := make([][]string, numCols)
-	colHeights := make([]int, numCols)
-
-	for _, box := range boxes {
-		shortest := 0
-		for i := 1; i < numCols; i++ {
-			if colHeights[i] < colHeights[shortest] {
-				shortest = i
-			}
-		}
-		columns[shortest] = append(columns[shortest], box)
-		colHeights[shortest] += strings.Count(box, "\n") + 1
-	}
-
-	var renderedCols []string
-	for _, col := range columns {
-		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	return b.String()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -607,15 +755,26 @@ func (m Model) renderToolRowCompact(item status.Item, nameW int, rowW int) strin
 	// Left part: " ✓ name"
 	left := " " + badge + " " + name
 
-	// Right part: status icon + version
+	// Right part: status icon + method + version
 	right := ""
 	if item.Status == "running" {
 		right += theme.ServiceRunning.Render(theme.IconServiceOn) + " "
 	} else if item.Status == "stopped" {
 		right += theme.Muted.Render("○") + " "
 	}
+
 	if version != "" {
 		right += theme.Muted.Render(version)
+	}
+
+	// Show install method when there's enough space
+	method := item.Method
+	if method != "" {
+		// Minimum space: left + gap(1) + method + space(1) + version
+		minNeeded := components.VisibleLen(left) + 1 + len(method) + 1 + components.VisibleLen(right)
+		if minNeeded <= rowW {
+			right += " " + theme.Muted.Render(method)
+		}
 	}
 
 	if right == "" {
@@ -630,6 +789,27 @@ func (m Model) renderToolRowCompact(item status.Item, nameW int, rowW int) strin
 	}
 
 	return left + strings.Repeat(" ", gap) + right
+}
+
+// getTotalMemoryMB returns total system RAM in MB via sysctl (cached).
+var totalMemoryMB float64
+
+func getTotalMemoryMB() float64 {
+	if totalMemoryMB > 0 {
+		return totalMemoryMB
+	}
+	out, err := exec.Command("sysctl", "-n", "hw.memsize").Output()
+	if err != nil {
+		return 16 * 1024 // fallback 16GB
+	}
+	var bytes int64
+	fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &bytes)
+	if bytes > 0 {
+		totalMemoryMB = float64(bytes) / (1024 * 1024)
+	} else {
+		totalMemoryMB = 16 * 1024
+	}
+	return totalMemoryMB
 }
 
 // renderProcessBars renders process items with colored horizontal bars
@@ -669,6 +849,9 @@ func (m Model) renderProcessBars(items []status.Item, width int) []string {
 			maxVal = 1
 		}
 
+		// For memory: color based on % of total system RAM, not relative to top process
+		totalMem := getTotalMemoryMB()
+
 		for i, p := range item.Processes {
 			if i >= maxItems {
 				break
@@ -679,38 +862,53 @@ func (m Model) renderProcessBars(items []status.Item, width int) []string {
 			}
 
 			v := parseProcessValue(p.Value)
-			ratio := v / maxVal
-			if ratio > 1.0 {
-				ratio = 1.0
+			sizeRatio := v / maxVal
+			if sizeRatio > 1.0 {
+				sizeRatio = 1.0
 			}
 
-			bar := renderBar(ratio, barWidth)
+			// Color ratio: for CPU use the value itself, for memory use % of total RAM
+			colorRatio := sizeRatio
+			if !isPercent {
+				colorRatio = v / totalMem
+				if colorRatio > 1.0 {
+					colorRatio = 1.0
+				}
+			}
+
+			bar := renderBarWithColor(sizeRatio, colorRatio, barWidth)
 			rows = append(rows, " "+fmt.Sprintf("%-*s", nameWidth, name)+" "+bar+" "+theme.Muted.Render(fmt.Sprintf("%*s", valueWidth, p.Value)))
 		}
 	}
 	return rows
 }
 
-// renderBar renders a colored horizontal bar
+// renderBar renders a colored horizontal bar (color based on size ratio)
 func renderBar(ratio float64, width int) string {
-	if ratio < 0 {
-		ratio = 0
+	return renderBarWithColor(ratio, ratio, width)
+}
+
+// renderBarWithColor renders a horizontal bar where size and color are independent.
+// sizeRatio controls bar fill, colorRatio controls green→yellow→red color.
+func renderBarWithColor(sizeRatio float64, colorRatio float64, width int) string {
+	if sizeRatio < 0 {
+		sizeRatio = 0
 	}
-	if ratio > 1 {
-		ratio = 1
+	if sizeRatio > 1 {
+		sizeRatio = 1
 	}
-	filled := int(ratio * float64(width))
+	filled := int(sizeRatio * float64(width))
 	if filled > width {
 		filled = width
 	}
 	empty := width - filled
 
-	// Color based on ratio: green → yellow → red
+	// Color based on colorRatio: green → yellow → red
 	var filledStyle lipgloss.Style
 	switch {
-	case ratio < 0.5:
+	case colorRatio < 0.5:
 		filledStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(theme.ColorSuccess))
-	case ratio < 0.8:
+	case colorRatio < 0.8:
 		filledStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(theme.ColorWarning))
 	default:
 		filledStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(theme.ColorDanger))

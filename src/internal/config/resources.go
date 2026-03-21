@@ -31,6 +31,21 @@ type ProcessResult struct {
 	Available bool
 }
 
+// RepoInfo describes a single git repository.
+type RepoInfo struct {
+	Name        string // short name (prefix stripped)
+	FullName    string // full directory name
+	Branch      string
+	ChangeCount int
+	Clean       bool
+}
+
+// ProjectGroup is a set of repos sharing a project prefix.
+type ProjectGroup struct {
+	Prefix string
+	Repos  []RepoInfo
+}
+
 // ResourceResult holds the result of a resource check
 type ResourceResult struct {
 	Value     string // The value to display (e.g., IP address, size)
@@ -66,65 +81,32 @@ var NetworkChecks = []ResourceCheck{
 		},
 	},
 	{
-		Name: "tailscale",
-		CheckFn: func() ResourceResult {
-			if settings, err := LoadRemoteSettings(); err == nil && ValidateRemoteSettings(settings) == nil {
-				if st, err := RemoteStatusInfo(settings); err == nil {
-					modeLabel := ""
-					if st.Mode != "" {
-						modeLabel = " (" + string(st.Mode) + ")"
-					}
-
-					if st.Connected {
-						if st.IP != "" {
-							return ResourceResult{Value: st.IP + modeLabel, Style: "success", Available: true}
-						}
-						return ResourceResult{Value: "connected" + modeLabel, Style: "success", Available: true}
-					}
-
-					if st.BackendState != "" {
-						return ResourceResult{Value: strings.ToLower(st.BackendState) + modeLabel, Style: "muted", Available: true}
-					}
-
-					return ResourceResult{Value: "disconnected" + modeLabel, Style: "muted", Available: true}
-				}
-			}
-
-			// Check if tailscale is running
-			out, err := exec.Command("tailscale", "status", "--json").Output()
-			if err != nil {
-				return ResourceResult{Value: "disconnected", Style: "muted", Available: true}
-			}
-			outStr := string(out)
-			if strings.Contains(outStr, `"BackendState":"Running"`) {
-				ipOut, _ := exec.Command("tailscale", "ip", "-4").Output()
-				ip := strings.TrimSpace(string(ipOut))
-				if ip != "" {
-					return ResourceResult{Value: ip, Style: "success", Available: true}
-				}
-				return ResourceResult{Value: "connected", Style: "success", Available: true}
-			}
-			return ResourceResult{Value: "disconnected", Style: "muted", Available: true}
-		},
-	},
-	{
 		Name: "vpn",
 		CheckFn: func() ResourceResult {
+			var vpnNames []string
+
+			// Check system VPN connections (Passepartout, IKEv2, IPSec, etc.)
 			out, _ := exec.Command("scutil", "--nc", "list").Output()
-			lines := strings.Split(string(out), "\n")
-			for _, line := range lines {
+			for _, line := range strings.Split(string(out), "\n") {
 				if strings.Contains(line, "(Connected)") {
-					// Extract VPN name from the line
-					// Format: * (Connected)      XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX IPSec "VPN Name"
 					if idx := strings.LastIndex(line, `"`); idx > 0 {
 						start := strings.LastIndex(line[:idx], `"`)
 						if start >= 0 && start < idx {
-							vpnName := line[start+1 : idx]
-							return ResourceResult{Value: vpnName, Style: "success", Available: true}
+							vpnNames = append(vpnNames, line[start+1:idx])
+							continue
 						}
 					}
-					return ResourceResult{Value: "connected", Style: "success", Available: true}
+					vpnNames = append(vpnNames, "connected")
 				}
+			}
+
+			// Check if Tailscale has an active exit node
+			if st, err := GetTailscaleFullStatus(); err == nil && st.ExitNode != "" {
+				vpnNames = append(vpnNames, "Tailscale ("+st.ExitNode+")")
+			}
+
+			if len(vpnNames) > 0 {
+				return ResourceResult{Value: strings.Join(vpnNames, ", "), Style: "success", Available: true}
 			}
 			return ResourceResult{Value: "none", Style: "muted", Available: true}
 		},
@@ -356,12 +338,6 @@ var ProcessChecks = []ProcessCheck{
 		},
 	},
 	{
-		Name: "Git",
-		CheckFn: func() []ProcessInfo {
-			return scanDirtyRepos()
-		},
-	},
-	{
 		Name: "Uptime",
 		CheckFn: func() []ProcessInfo {
 			return getUptimeInfo()
@@ -579,15 +555,16 @@ func shortenUptime(s string) string {
 	return replacer.Replace(s)
 }
 
-// scanDirtyRepos finds repos with uncommitted changes in ~/Developer
-func scanDirtyRepos() []ProcessInfo {
+// ScanAllRepos scans all git repos in ~/Developer and groups them by project prefix.
+func ScanAllRepos() []ProjectGroup {
 	devDir := os.Getenv("HOME") + "/Developer"
 	entries, err := os.ReadDir(devDir)
 	if err != nil {
 		return nil
 	}
 
-	var result []ProcessInfo
+	// Collect all repos
+	var repos []RepoInfo
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -597,18 +574,6 @@ func scanDirtyRepos() []ProcessInfo {
 			continue
 		}
 
-		cmd := exec.Command("git", "-C", repoPath, "status", "--porcelain")
-		out, err := cmd.Output()
-		if err != nil {
-			continue
-		}
-		status := strings.TrimSpace(string(out))
-		if status == "" {
-			continue
-		}
-
-		lines := strings.Split(status, "\n")
-
 		branchCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
 		branchOut, _ := branchCmd.Output()
 		branch := strings.TrimSpace(string(branchOut))
@@ -616,8 +581,48 @@ func scanDirtyRepos() []ProcessInfo {
 			branch = "?"
 		}
 
-		value := fmt.Sprintf("%s %d changed", branch, len(lines))
-		result = append(result, ProcessInfo{Name: entry.Name(), Value: value})
+		cmd := exec.Command("git", "-C", repoPath, "status", "--porcelain")
+		out, _ := cmd.Output()
+		status := strings.TrimSpace(string(out))
+		changeCount := 0
+		if status != "" {
+			changeCount = len(strings.Split(status, "\n"))
+		}
+
+		repos = append(repos, RepoInfo{
+			FullName:    entry.Name(),
+			Branch:      branch,
+			ChangeCount: changeCount,
+			Clean:       changeCount == 0,
+		})
+	}
+
+	// Group by prefix (everything before the first "-")
+	groupMap := make(map[string][]RepoInfo)
+	var groupOrder []string
+	for _, repo := range repos {
+		prefix := repo.FullName
+		if idx := strings.Index(repo.FullName, "-"); idx > 0 {
+			prefix = repo.FullName[:idx]
+			repo.Name = repo.FullName[idx+1:]
+		} else {
+			repo.Name = repo.FullName
+		}
+		if _, exists := groupMap[prefix]; !exists {
+			groupOrder = append(groupOrder, prefix)
+		}
+		groupMap[prefix] = append(groupMap[prefix], repo)
+	}
+
+	sort.Strings(groupOrder)
+
+	var result []ProjectGroup
+	for _, prefix := range groupOrder {
+		group := ProjectGroup{Prefix: prefix, Repos: groupMap[prefix]}
+		sort.Slice(group.Repos, func(i, j int) bool {
+			return group.Repos[i].Name < group.Repos[j].Name
+		})
+		result = append(result, group)
 	}
 	return result
 }

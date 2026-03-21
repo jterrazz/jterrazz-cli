@@ -74,6 +74,54 @@ func SubsectionBox(title string, lines []string, width int) string {
 	return top + "\n" + strings.Join(paddedLines, "\n") + "\n" + bottom
 }
 
+// SubsectionBoxWithSeparator renders a subsection box with a horizontal separator
+// between topLines and bottomLines.
+// ╭─ Title ────────────────────────────────────────────────────────────────╮
+// │ top line 1                                                             │
+// │ top line 2                                                             │
+// ├────────────────────────────────────────────────────────────────────────┤
+// │ bottom line 1                                                          │
+// │ bottom line 2                                                          │
+// ╰────────────────────────────────────────────────────────────────────────╯
+func SubsectionBoxWithSeparator(title string, topLines []string, bottomLines []string, width int) string {
+	innerWidth := width - 4
+	if innerWidth < 20 {
+		innerWidth = 20
+	}
+
+	borderStyle := theme.SectionBorder
+
+	// Build top border with title (same as SubsectionBox)
+	totalBorderChars := innerWidth + 2
+	leftPart := 2
+	rightPart := 2
+	titleSpace := len(title)
+	remainingDashes := totalBorderChars - leftPart - titleSpace - rightPart + 1
+	if remainingDashes < 1 {
+		remainingDashes = 1
+	}
+
+	top := borderStyle.Render(theme.BoxRoundedTopLeft+theme.BoxRoundedHorizontal+" ") +
+		theme.SubSection.Render(title) +
+		borderStyle.Render(" "+strings.Repeat(theme.BoxRoundedHorizontal, remainingDashes)+theme.BoxRoundedTopRight)
+
+	separator := borderStyle.Render(theme.BoxRoundedTeeLeft + strings.Repeat(theme.BoxRoundedHorizontal, innerWidth+2) + theme.BoxRoundedTeeRight)
+
+	bottom := borderStyle.Render(theme.BoxRoundedBottomLeft + strings.Repeat(theme.BoxRoundedHorizontal, innerWidth+2) + theme.BoxRoundedBottomRight)
+
+	var paddedTop []string
+	for _, line := range topLines {
+		paddedTop = append(paddedTop, padBoxLine(line, innerWidth))
+	}
+	var paddedBottom []string
+	for _, line := range bottomLines {
+		paddedBottom = append(paddedBottom, padBoxLine(line, innerWidth))
+	}
+
+	result := top + "\n" + strings.Join(paddedTop, "\n") + "\n" + separator + "\n" + strings.Join(paddedBottom, "\n") + "\n" + bottom
+	return result
+}
+
 // =============================================================================
 // Helpers
 // =============================================================================
