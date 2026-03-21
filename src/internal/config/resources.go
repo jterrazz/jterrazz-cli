@@ -46,6 +46,37 @@ type ProjectGroup struct {
 	Repos  []RepoInfo
 }
 
+// DockerImageInfo describes a Docker image.
+type DockerImageInfo struct {
+	Repository string
+	Tag        string
+	Size       string
+}
+
+// DockerStatus holds the full Docker dashboard data.
+type DockerStatus struct {
+	Containers []ProcessInfo
+	Images     []DockerImageInfo
+	DanglingCount int
+	DanglingSize  string
+	VolumesCount  int
+	VolumesSize   string
+	BuildCache    string
+}
+
+// DepRepoInfo describes dependency status for a single repo.
+type DepRepoInfo struct {
+	Name     string // short name (prefix stripped)
+	Manager  string // "pnpm", "go", etc.
+	Outdated int    // number of outdated deps (-1 = error/unknown)
+}
+
+// DepProjectGroup groups dependency info by project prefix.
+type DepProjectGroup struct {
+	Prefix string
+	Repos  []DepRepoInfo
+}
+
 // ResourceResult holds the result of a resource check
 type ResourceResult struct {
 	Value     string // The value to display (e.g., IP address, size)
@@ -322,19 +353,6 @@ var ProcessChecks = []ProcessCheck{
 		CheckFn: func() []ProcessInfo {
 			out, _ := exec.Command("lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n", "-Fcn").Output()
 			return parseListeningPortsFcn(out)
-		},
-	},
-	{
-		Name: "Containers",
-		CheckFn: func() []ProcessInfo {
-			if !CommandExists("docker") {
-				return nil
-			}
-			out, err := exec.Command("docker", "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}").Output()
-			if err != nil {
-				return nil
-			}
-			return parseDockerContainers(out)
 		},
 	},
 	{
@@ -625,6 +643,231 @@ func ScanAllRepos() []ProjectGroup {
 		result = append(result, group)
 	}
 	return result
+}
+
+// ScanDependencies checks outdated deps for all repos in ~/Developer.
+func ScanDependencies() []DepProjectGroup {
+	devDir := os.Getenv("HOME") + "/Developer"
+	entries, err := os.ReadDir(devDir)
+	if err != nil {
+		return nil
+	}
+
+	type depResult struct {
+		fullName string
+		manager  string
+		outdated int
+	}
+
+	// Collect repos with lockfiles
+	var jobs []depResult
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		repoPath := devDir + "/" + entry.Name()
+		if _, err := os.Stat(repoPath + "/.git"); err != nil {
+			continue
+		}
+
+		var manager string
+		if _, err := os.Stat(repoPath + "/pnpm-lock.yaml"); err == nil {
+			manager = "pnpm"
+		} else if _, err := os.Stat(repoPath + "/go.sum"); err == nil {
+			manager = "go"
+		} else if _, err := os.Stat(repoPath + "/bun.lock"); err == nil {
+			manager = "bun"
+		} else if _, err := os.Stat(repoPath + "/package-lock.json"); err == nil {
+			manager = "npm"
+		}
+		if manager == "" {
+			continue
+		}
+		jobs = append(jobs, depResult{fullName: entry.Name(), manager: manager, outdated: -1})
+	}
+
+	// Run outdated checks in parallel
+	type indexedResult struct {
+		idx      int
+		outdated int
+	}
+	ch := make(chan indexedResult, len(jobs))
+	for i, job := range jobs {
+		go func(idx int, j depResult) {
+			repoPath := devDir + "/" + j.fullName
+			count := countOutdated(repoPath, j.manager)
+			ch <- indexedResult{idx: idx, outdated: count}
+		}(i, job)
+	}
+	for range jobs {
+		r := <-ch
+		jobs[r.idx].outdated = r.outdated
+	}
+
+	// Group by prefix
+	groupMap := make(map[string][]DepRepoInfo)
+	var groupOrder []string
+	for _, job := range jobs {
+		prefix := job.fullName
+		name := job.fullName
+		if idx := strings.Index(job.fullName, "-"); idx > 0 {
+			prefix = job.fullName[:idx]
+			name = job.fullName[idx+1:]
+		}
+		if _, exists := groupMap[prefix]; !exists {
+			groupOrder = append(groupOrder, prefix)
+		}
+		groupMap[prefix] = append(groupMap[prefix], DepRepoInfo{
+			Name:     name,
+			Manager:  job.manager,
+			Outdated: job.outdated,
+		})
+	}
+
+	sort.Strings(groupOrder)
+	var result []DepProjectGroup
+	for _, prefix := range groupOrder {
+		repos := groupMap[prefix]
+		sort.Slice(repos, func(i, j int) bool { return repos[i].Name < repos[j].Name })
+		result = append(result, DepProjectGroup{Prefix: prefix, Repos: repos})
+	}
+	return result
+}
+
+// countOutdated returns number of outdated dependencies for a repo.
+func countOutdated(repoPath string, manager string) int {
+	switch manager {
+	case "pnpm":
+		out, err := exec.Command("pnpm", "outdated", "--dir", repoPath, "--format", "json").Output()
+		if err != nil {
+			// pnpm outdated exits 1 when there are outdated deps
+			if len(out) == 0 {
+				return 0
+			}
+		}
+		outStr := strings.TrimSpace(string(out))
+		if outStr == "" || outStr == "{}" || outStr == "[]" {
+			return 0
+		}
+		// Count entries — each key in the JSON object is an outdated package
+		count := 0
+		for _, line := range strings.Split(outStr, "\n") {
+			if strings.Contains(line, `"current"`) {
+				count++
+			}
+		}
+		return count
+	case "go":
+		out, _ := exec.Command("go", "list", "-m", "-u", "-json", "all").
+			Output()
+		// Count modules that have an Update field
+		count := 0
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, `"Update"`) {
+				count++
+			}
+		}
+		return count
+	case "bun":
+		// bun doesn't have a good outdated command yet
+		return 0
+	case "npm":
+		out, _ := exec.Command("npm", "outdated", "--json", "--prefix", repoPath).Output()
+		outStr := strings.TrimSpace(string(out))
+		if outStr == "" || outStr == "{}" {
+			return 0
+		}
+		count := 0
+		for _, line := range strings.Split(outStr, "\n") {
+			if strings.Contains(line, `"current"`) {
+				count++
+			}
+		}
+		return count
+	}
+	return 0
+}
+
+// GetDockerStatus returns full Docker dashboard data.
+func GetDockerStatus() (DockerStatus, error) {
+	if !CommandExists("docker") {
+		return DockerStatus{}, fmt.Errorf("docker not found")
+	}
+
+	var ds DockerStatus
+
+	// Running containers
+	out, err := exec.Command("docker", "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}").Output()
+	if err == nil {
+		ds.Containers = parseDockerContainers(out)
+	}
+
+	// All images (non-dangling)
+	imgOut, err := exec.Command("docker", "images", "--format", "{{.Repository}}\t{{.Tag}}\t{{.Size}}").Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(imgOut)), "\n") {
+			if line == "" {
+				continue
+			}
+			parts := strings.SplitN(line, "\t", 3)
+			if len(parts) < 3 {
+				continue
+			}
+			if parts[0] == "<none>" {
+				continue // skip dangling in main list
+			}
+			ds.Images = append(ds.Images, DockerImageInfo{
+				Repository: parts[0],
+				Tag:        parts[1],
+				Size:       parts[2],
+			})
+		}
+	}
+
+	// Dangling images
+	dangOut, err := exec.Command("docker", "images", "-f", "dangling=true", "--format", "{{.Size}}").Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(dangOut)), "\n")
+		for _, line := range lines {
+			if line != "" {
+				ds.DanglingCount++
+			}
+		}
+		if ds.DanglingCount > 0 {
+			// Get total dangling size
+			sizeOut, _ := exec.Command("docker", "images", "-f", "dangling=true", "--format", "{{.Size}}").Output()
+			var total int64
+			for _, line := range strings.Split(strings.TrimSpace(string(sizeOut)), "\n") {
+				total += parseDockerSize(strings.TrimSpace(line))
+			}
+			if total > 0 {
+				ds.DanglingSize = tool.FormatBytes(total)
+			}
+		}
+	}
+
+	// Volumes
+	volOut, err := exec.Command("docker", "volume", "ls", "-q").Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(volOut)), "\n") {
+			if line != "" {
+				ds.VolumesCount++
+			}
+		}
+	}
+
+	// Build cache from docker system df
+	dfOut, err := exec.Command("docker", "system", "df", "--format", "{{.Type}}\t{{.Size}}").Output()
+	if err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(dfOut)), "\n") {
+			parts := strings.SplitN(line, "\t", 2)
+			if len(parts) == 2 && strings.Contains(parts[0], "Build") {
+				ds.BuildCache = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	return ds, nil
 }
 
 // getUptimeInfo returns system uptime, load average, and battery info

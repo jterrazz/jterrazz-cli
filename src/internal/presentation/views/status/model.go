@@ -211,6 +211,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			existing.Processes = msg.Item.Processes
 			existing.TailscaleStatus = msg.Item.TailscaleStatus
 			existing.ProjectGroups = msg.Item.ProjectGroups
+			existing.DockerStatus = msg.Item.DockerStatus
+			existing.DepGroups = msg.Item.DepGroups
 			m.items[msg.ID] = existing
 		} else {
 			m.items[msg.ID] = msg.Item

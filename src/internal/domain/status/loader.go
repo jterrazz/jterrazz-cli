@@ -25,6 +25,8 @@ const (
 	KindNetwork
 	KindTailscale
 	KindRepository
+	KindDocker
+	KindDependency
 	KindCache
 	KindSystemInfo
 )
@@ -58,6 +60,12 @@ type Item struct {
 
 	// Repository data (for KindRepository items)
 	ProjectGroups []config.ProjectGroup
+
+	// Docker data (for KindDocker items)
+	DockerStatus *config.DockerStatus
+
+	// Dependency data (for KindDependency items)
+	DepGroups []config.DepProjectGroup
 }
 
 // UpdateMsg is sent when a status item finishes loading
@@ -121,8 +129,8 @@ func (l *Loader) buildItems() {
 	for _, check := range config.ProcessChecks {
 		section := "System"
 		subsection := check.Name
-		// Services = Containers + Ports
-		if check.Name == "Containers" || check.Name == "Ports" {
+		// Services = Ports
+		if check.Name == "Ports" {
 			section = "Environment"
 			subsection = "Services"
 		}
@@ -147,6 +155,24 @@ func (l *Loader) buildItems() {
 		Section:    "Workspace",
 		SubSection: "Repositories",
 		Name:       "repositories",
+	})
+
+	// Docker dashboard
+	l.addItem(Item{
+		ID:         "docker",
+		Kind:       KindDocker,
+		Section:    "Workspace",
+		SubSection: "Docker",
+		Name:       "docker",
+	})
+
+	// Dependencies
+	l.addItem(Item{
+		ID:         "dependencies",
+		Kind:       KindDependency,
+		Section:    "Workspace",
+		SubSection: "Dependencies",
+		Name:       "dependencies",
 	})
 
 	// ── Environment ───────────────────────────────────────────────────
@@ -189,7 +215,7 @@ func (l *Loader) buildItems() {
 		l.addItem(Item{
 			ID:         "cache-" + check.Name,
 			Kind:       KindCache,
-			Section:    "Workspace",
+			Section:    "Environment",
 			SubSection: "Disk",
 			Name:       check.Name,
 		})
@@ -423,6 +449,31 @@ func (l *Loader) Start() {
 		l.updates <- UpdateMsg{ID: "repositories", Item: Item{
 			ID: "repositories", Kind: KindRepository, Name: "repositories",
 			Loaded: true, Available: len(groups) > 0, ProjectGroups: groups,
+		}}
+	}()
+
+	// Docker check
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		item := Item{
+			ID: "docker", Kind: KindDocker, Name: "docker", Loaded: true,
+		}
+		if ds, err := config.GetDockerStatus(); err == nil {
+			item.Available = true
+			item.DockerStatus = &ds
+		}
+		l.updates <- UpdateMsg{ID: item.ID, Item: item}
+	}()
+
+	// Dependencies check
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		groups := config.ScanDependencies()
+		l.updates <- UpdateMsg{ID: "dependencies", Item: Item{
+			ID: "dependencies", Kind: KindDependency, Name: "dependencies",
+			Loaded: true, Available: len(groups) > 0, DepGroups: groups,
 		}}
 	}()
 

@@ -28,11 +28,11 @@ func (m Model) renderContent() string {
 	sections := m.groupBySection()
 
 	// ── SYSTEM ───────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("SYSTEM", w))
+	b.WriteString(sectionDivider("ACTIVITY", w))
 	b.WriteString(m.renderActivity(sections, w))
 
-	// ── ENVIRONMENT ──────────────────────────────────────────────────
-	b.WriteString(sectionDivider("ENVIRONMENT", w))
+	// ── SYSTEM ──────────────────────────────────────────────────────
+	b.WriteString(sectionDivider("SYSTEM", w))
 	b.WriteString(m.renderEnvironment(sections, w))
 
 	// ── WORKSPACE ────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ func (m Model) renderContent() string {
 	b.WriteString(m.renderWorkspace(sections, w))
 
 	// ── SETUP ────────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("SETUP", w))
+	b.WriteString(sectionDivider("CONFIG", w))
 	b.WriteString(m.renderSetup(sections, w))
 
 	// ── SOFTWARE ─────────────────────────────────────────────────────
@@ -317,11 +317,7 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 	for _, item := range svcItems {
 		if item.Kind == status.KindProcess {
 			for _, p := range item.Processes {
-				prefix := " "
-				if item.Name == "Containers" {
-					prefix = " " + theme.ServiceRunning.Render("●") + " "
-				}
-				left := prefix + p.Name
+				left := " " + p.Name
 				right := theme.Muted.Render(p.Value)
 				leftLen := components.VisibleLen(left)
 				rightLen := components.VisibleLen(right)
@@ -346,6 +342,54 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 	}
 	if len(svcRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Services", svcRows, colWidth))
+	}
+
+	// Disk Usage box
+	diskItems := m.getSubsectionItems(sections, "Environment", "Disk")
+	diskReady := len(m.diskSortOrder) > 0 && m.diskMaxSize > 0
+	if diskReady {
+		orderMap := make(map[string]int, len(m.diskSortOrder))
+		for i, id := range m.diskSortOrder {
+			orderMap[id] = i
+		}
+		sort.SliceStable(diskItems, func(i, j int) bool {
+			return orderMap[diskItems[i].ID] < orderMap[diskItems[j].ID]
+		})
+	}
+	diskInnerW := colWidth - 4
+	barWidth := 15
+	valueWidth := 9
+	nameWidth := diskInnerW - barWidth - valueWidth - 3
+	if nameWidth < 10 {
+		nameWidth = 10
+	}
+	simpleNameWidth := diskInnerW - valueWidth - 2
+	if simpleNameWidth < 10 {
+		simpleNameWidth = 10
+	}
+	var diskRows []string
+	for _, item := range diskItems {
+		if item.Kind != status.KindCache {
+			continue
+		}
+		if !item.Loaded {
+			diskRows = append(diskRows, " "+padName(item.Name, simpleNameWidth)+m.loadingIndicator())
+		} else if item.Available {
+			if diskReady {
+				size := parseDisplaySize(item.Value)
+				ratio := size / m.diskMaxSize
+				if ratio > 1.0 {
+					ratio = 1.0
+				}
+				bar := renderBar(ratio, barWidth)
+				diskRows = append(diskRows, " "+fmt.Sprintf("%-*s", nameWidth, item.Name)+" "+bar+" "+theme.Muted.Render(fmt.Sprintf("%*s", valueWidth, item.Value)))
+			} else {
+				diskRows = append(diskRows, " "+fmt.Sprintf("%-*s", simpleNameWidth, item.Name)+" "+theme.Muted.Render(fmt.Sprintf("%*s", valueWidth, item.Value)))
+			}
+		}
+	}
+	if len(diskRows) > 0 {
+		boxes = append(boxes, components.SubsectionBox("Disk Usage", diskRows, colWidth))
 	}
 
 	if len(boxes) == 0 {
@@ -447,54 +491,122 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 		}
 	}
 
-	// Disk box — only show bars after all loaded (cached sort + max)
-	diskItems := m.getSubsectionItems(sections, "Workspace", "Disk")
+	// Docker box
+	dockerItems := m.getSubsectionItems(sections, "Workspace", "Docker")
+	var dockerBox string
+	for _, item := range dockerItems {
+		if item.Kind == status.KindDocker && item.Loaded && item.Available && item.DockerStatus != nil {
+			ds := item.DockerStatus
 
-	diskReady := len(m.diskSortOrder) > 0 && m.diskMaxSize > 0
-	if diskReady {
-		// Apply cached sort order
-		orderMap := make(map[string]int, len(m.diskSortOrder))
-		for i, id := range m.diskSortOrder {
-			orderMap[id] = i
-		}
-		sort.SliceStable(diskItems, func(i, j int) bool {
-			return orderMap[diskItems[i].ID] < orderMap[diskItems[j].ID]
-		})
-	}
-
-	barWidth := 15
-	valueWidth := 9
-	nameWidth := innerW - barWidth - valueWidth - 3
-	if nameWidth < 10 {
-		nameWidth = 10
-	}
-	// Simpler width when no bars
-	simpleNameWidth := innerW - valueWidth - 2
-	if simpleNameWidth < 10 {
-		simpleNameWidth = 10
-	}
-
-	var diskRows []string
-	for _, item := range diskItems {
-		if item.Kind != status.KindCache {
-			continue
-		}
-		if !item.Loaded {
-			diskRows = append(diskRows, " "+padName(item.Name, simpleNameWidth)+m.loadingIndicator())
-		} else if item.Available {
-			if diskReady {
-				// Stable bars with cached max
-				size := parseDisplaySize(item.Value)
-				ratio := size / m.diskMaxSize
-				if ratio > 1.0 {
-					ratio = 1.0
+			// Section 1: Running containers
+			var containerRows []string
+			if len(ds.Containers) > 0 {
+				for _, c := range ds.Containers {
+					left := " " + theme.ServiceRunning.Render("●") + " " + c.Name
+					right := theme.Muted.Render(c.Value)
+					gap := innerW - components.VisibleLen(left) - components.VisibleLen(right)
+					if gap < 1 {
+						gap = 1
+					}
+					containerRows = append(containerRows, left+strings.Repeat(" ", gap)+right)
 				}
-				bar := renderBar(ratio, barWidth)
-				diskRows = append(diskRows, " "+fmt.Sprintf("%-*s", nameWidth, item.Name)+" "+bar+" "+theme.Muted.Render(fmt.Sprintf("%*s", valueWidth, item.Value)))
 			} else {
-				// Loading phase: just show name + value, no bars
-				diskRows = append(diskRows, " "+fmt.Sprintf("%-*s", simpleNameWidth, item.Name)+" "+theme.Muted.Render(fmt.Sprintf("%*s", valueWidth, item.Value)))
+				containerRows = append(containerRows, " "+theme.Muted.Render("no containers running"))
 			}
+
+			// Section 2: Images
+			var imageRows []string
+			for _, img := range ds.Images {
+				name := img.Repository
+				if len(name) > 20 {
+					name = name[:17] + "..."
+				}
+				left := " " + name
+				right := theme.Muted.Render(img.Tag) + "  " + theme.Muted.Render(img.Size)
+				gap := innerW - components.VisibleLen(left) - components.VisibleLen(right)
+				if gap < 1 {
+					gap = 1
+				}
+				imageRows = append(imageRows, left+strings.Repeat(" ", gap)+right)
+			}
+			if ds.DanglingCount > 0 {
+				left := " " + theme.Warning.Render(fmt.Sprintf("+ %d dangling", ds.DanglingCount))
+				right := theme.Muted.Render(ds.DanglingSize)
+				gap := innerW - components.VisibleLen(left) - components.VisibleLen(right)
+				if gap < 1 {
+					gap = 1
+				}
+				imageRows = append(imageRows, left+strings.Repeat(" ", gap)+right)
+			}
+			if len(imageRows) == 0 {
+				imageRows = append(imageRows, " "+theme.Muted.Render("no images"))
+			}
+
+			// Section 3: Summary stats
+			var summaryRow string
+			parts := []string{
+				fmt.Sprintf("images %d", len(ds.Images)),
+			}
+			if ds.VolumesCount > 0 {
+				parts = append(parts, fmt.Sprintf("volumes %d", ds.VolumesCount))
+			}
+			if ds.BuildCache != "" && ds.BuildCache != "0B" {
+				parts = append(parts, "cache "+ds.BuildCache)
+			}
+			summaryRow = " " + theme.Muted.Render(strings.Join(parts, "    "))
+
+			dockerBox = components.SubsectionBoxWithSections("Docker",
+				[][]string{containerRows, imageRows, {summaryRow}}, colWidth)
+		} else if item.Kind == status.KindDocker && !item.Loaded {
+			dockerBox = components.SubsectionBox("Docker", []string{" " + m.loadingIndicator()}, colWidth)
+		}
+	}
+
+	// Dependencies box
+	depItems := m.getSubsectionItems(sections, "Workspace", "Dependencies")
+	var depRows []string
+	for _, item := range depItems {
+		if item.Kind == status.KindDependency && item.Loaded && item.Available {
+			maxNameW := 0
+			for _, group := range item.DepGroups {
+				for _, repo := range group.Repos {
+					if len(repo.Name) > maxNameW {
+						maxNameW = len(repo.Name)
+					}
+				}
+			}
+
+			for gi, group := range item.DepGroups {
+				if gi > 0 {
+					depRows = append(depRows, "")
+				}
+				depRows = append(depRows, " "+theme.SubSection.Render(group.Prefix+"/"))
+				for ri, repo := range group.Repos {
+					connector := "├─"
+					if ri == len(group.Repos)-1 {
+						connector = "└─"
+					}
+
+					var statusStr string
+					if repo.Outdated == 0 {
+						statusStr = theme.Success.Render("✓ ok")
+					} else if repo.Outdated > 0 {
+						statusStr = theme.Warning.Render(fmt.Sprintf("%d outdated", repo.Outdated))
+					} else {
+						statusStr = theme.Muted.Render("?")
+					}
+
+					left := "   " + theme.Muted.Render(connector) + " " + fmt.Sprintf("%-*s", maxNameW, repo.Name)
+					right := statusStr + "  " + theme.Muted.Render(repo.Manager)
+					gap := innerW - components.VisibleLen(left) - components.VisibleLen(right)
+					if gap < 1 {
+						gap = 1
+					}
+					depRows = append(depRows, left+strings.Repeat(" ", gap)+right)
+				}
+			}
+		} else if item.Kind == status.KindDependency && !item.Loaded {
+			depRows = append(depRows, " "+m.loadingIndicator())
 		}
 	}
 
@@ -502,8 +614,11 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 	if len(repoRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Repositories", repoRows, colWidth))
 	}
-	if len(diskRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Disk Usage", diskRows, colWidth))
+	if len(depRows) > 0 {
+		boxes = append(boxes, components.SubsectionBox("Dependencies", depRows, colWidth))
+	}
+	if dockerBox != "" {
+		boxes = append(boxes, dockerBox)
 	}
 
 	if len(boxes) == 0 {
