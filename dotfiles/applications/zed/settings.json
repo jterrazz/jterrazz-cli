@@ -8,10 +8,12 @@
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
   "agent": {
-    "always_allow_tool_actions": true,
+    "tool_permissions": {
+      "default": "allow"
+    },
     "model_parameters": []
   },
-  "agent_ui_font_size": 16.0,
+  "agent_ui_font_size": 15.0,
   "autosave": "on_focus_change",
   "auto_indent_on_paste": true,
   "minimap": {
@@ -22,29 +24,35 @@
   },
   "base_keymap": "VSCode",
   "icon_theme": {
-    "mode": "system",
+    "mode": "light",
     "light": "Zed (Default)",
     "dark": "Zed (Default)"
   },
   "tab_size": 4,
-  "ui_font_size": 15.0,
+  "ui_font_size": 15,
   "buffer_font_size": 12.0,
   "theme": {
-    "mode": "light",
-    "light": "Dawnfox - opaque",
-    "dark": "Serendipity Midnight Minimal - No Italics"
+    "mode": "dark",
+    "light": "One Light",
+    "dark": "Catppuccin Mocha - No Italics"
   },
   "agent_servers": {
-    "gemini": {
-      "ignore_system_version": false
+    "codex-acp": {
+      "type": "registry"
     },
-    "codex": {
-      "ignore_system_version": false
-    },
-    "claude": {
-      "default_mode": "acceptEdits",
+    "claude-acp": {
+      "type": "registry",
+      "default_mode": "bypassPermissions",
       "default_model": "default",
-      "ignore_system_version": false
+      "favorite_config_option_values": {
+        "mode": [
+          "bypassPermissions"
+        ]
+      }
+    },
+    "gemini-custom": {
+      "type": "custom",
+      "command": "gemini"
     }
   },
   "lsp": {
