@@ -91,7 +91,8 @@ vet: ## Run go vet
 	@go vet ./src/...
 	@printf "$(GREEN)✓$(RESET) Vet passed\n"
 
-lint: ## Run golangci-lint (install: brew install golangci-lint)
+lint: ## Run golangci-lint
+	@which golangci-lint > /dev/null 2>&1 || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@golangci-lint run ./src/...
 	@printf "$(GREEN)✓$(RESET) Lint passed\n"
 
