@@ -15,6 +15,15 @@ type Skill struct {
 // FavoriteSkills is the list of skills you want installed on your machine
 // The "Install All" action will install these skills
 var FavoriteSkills = []Skill{
+	// @jterrazz ecosystem
+	{"jterrazz/jterrazz-studio", "jterrazz-stack"},
+	{"jterrazz/jterrazz-studio", "jterrazz-new-project"},
+	{"jterrazz/jterrazz-studio", "jterrazz-infra"},
+	{"jterrazz/package-typescript", "jterrazz-typescript"},
+	{"jterrazz/package-codestyle", "jterrazz-codestyle"},
+	{"jterrazz/package-broadcast", "jterrazz-broadcast"},
+
+	// Third-party
 	{"anthropics/skills", "frontend-design"},
 	{"expo/skills", "upgrading-expo"},
 	{"shadcn-ui/ui", "shadcn"},
@@ -27,6 +36,10 @@ var FavoriteSkills = []Skill{
 // SkillRepos is the list of recommended skill repositories
 // Skills are fetched dynamically when a repo is expanded in the TUI
 var SkillRepos = []SkillRepo{
+	{"jterrazz/jterrazz-studio", "Dev toolkit, conventions, and infrastructure skills"},
+	{"jterrazz/package-typescript", "TypeScript build tooling (tsdown)"},
+	{"jterrazz/package-codestyle", "Linting and formatting (oxlint, oxfmt, tsgo)"},
+	{"jterrazz/package-broadcast", "Multi-channel announcements (App Store, push)"},
 	{"anthropics/skills", "Official Anthropic skills for Claude"},
 	{"better-auth/skills", "Authentication best practices"},
 	{"code-with-beto/skills", "Beto's development skills"},
