@@ -18,7 +18,7 @@ var FavoriteSkills = []Skill{
 	// @jterrazz ecosystem
 	{"jterrazz/jterrazz-studio", "jterrazz-stack"},
 	{"jterrazz/jterrazz-studio", "jterrazz-new-project"},
-	{"jterrazz/jterrazz-studio", "jterrazz-infra"},
+	{"jterrazz/jterrazz-infra", "jterrazz-infra"},
 	{"jterrazz/package-typescript", "jterrazz-typescript"},
 	{"jterrazz/package-codestyle", "jterrazz-codestyle"},
 	{"jterrazz/package-broadcast", "jterrazz-broadcast"},
@@ -40,6 +40,7 @@ var SkillRepos = []SkillRepo{
 	{"jterrazz/package-typescript", "TypeScript build tooling (tsdown)"},
 	{"jterrazz/package-codestyle", "Linting and formatting (oxlint, oxfmt, tsgo)"},
 	{"jterrazz/package-broadcast", "Multi-channel announcements (App Store, push)"},
+	{"jterrazz/jterrazz-infra", "Infrastructure and deployment (K3s, Helm, Traefik)"},
 	{"anthropics/skills", "Official Anthropic skills for Claude"},
 	{"better-auth/skills", "Authentication best practices"},
 	{"code-with-beto/skills", "Beto's development skills"},
