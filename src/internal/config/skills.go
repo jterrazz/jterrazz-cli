@@ -20,6 +20,7 @@ var StudioSkills = []Skill{
 	{"jterrazz/package-typescript", "jterrazz-typescript"},
 	{"jterrazz/package-codestyle", "jterrazz-codestyle"},
 	{"jterrazz/package-broadcast", "jterrazz-broadcast"},
+	{"jterrazz/jterrazz-workflows", "jterrazz-workflows"},
 }
 
 // CommunitySkills are third-party skills worth having
@@ -40,6 +41,7 @@ var FavoriteSkills = append(StudioSkills, CommunitySkills...)
 var StudioRepos = []SkillRepo{
 	{"jterrazz/jterrazz-studio", "Dev toolkit, conventions, and scaffolding"},
 	{"jterrazz/jterrazz-infra", "Infrastructure and deployment (K3s, Helm, Traefik)"},
+	{"jterrazz/jterrazz-workflows", "Shared CI/CD workflows (validate, release)"},
 	{"jterrazz/package-typescript", "TypeScript build tooling (tsdown)"},
 	{"jterrazz/package-codestyle", "Linting and formatting (oxlint, oxfmt, tsgo)"},
 	{"jterrazz/package-broadcast", "Multi-channel announcements (App Store, push)"},
