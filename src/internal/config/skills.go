@@ -12,18 +12,18 @@ type Skill struct {
 	Skill string // Skill name within the repo
 }
 
-// FavoriteSkills is the list of skills you want installed on your machine
-// The "Install All" action will install these skills
-var FavoriteSkills = []Skill{
-	// @jterrazz ecosystem
+// StudioSkills are @jterrazz skills — the foundation of every project
+var StudioSkills = []Skill{
 	{"jterrazz/jterrazz-studio", "jterrazz-stack"},
 	{"jterrazz/jterrazz-studio", "jterrazz-new-project"},
 	{"jterrazz/jterrazz-infra", "jterrazz-infra"},
 	{"jterrazz/package-typescript", "jterrazz-typescript"},
 	{"jterrazz/package-codestyle", "jterrazz-codestyle"},
 	{"jterrazz/package-broadcast", "jterrazz-broadcast"},
+}
 
-	// Third-party
+// CommunitySkills are third-party skills worth having
+var CommunitySkills = []Skill{
 	{"anthropics/skills", "frontend-design"},
 	{"expo/skills", "upgrading-expo"},
 	{"shadcn-ui/ui", "shadcn"},
@@ -33,14 +33,20 @@ var FavoriteSkills = []Skill{
 	{"vercel-labs/agent-skills", "vercel-react-native-skills"},
 }
 
-// SkillRepos is the list of recommended skill repositories
-// Skills are fetched dynamically when a repo is expanded in the TUI
-var SkillRepos = []SkillRepo{
-	{"jterrazz/jterrazz-studio", "Dev toolkit, conventions, and infrastructure skills"},
+// FavoriteSkills is all pinned skills combined (studio + community)
+var FavoriteSkills = append(StudioSkills, CommunitySkills...)
+
+// StudioRepos are @jterrazz skill repositories
+var StudioRepos = []SkillRepo{
+	{"jterrazz/jterrazz-studio", "Dev toolkit, conventions, and scaffolding"},
+	{"jterrazz/jterrazz-infra", "Infrastructure and deployment (K3s, Helm, Traefik)"},
 	{"jterrazz/package-typescript", "TypeScript build tooling (tsdown)"},
 	{"jterrazz/package-codestyle", "Linting and formatting (oxlint, oxfmt, tsgo)"},
 	{"jterrazz/package-broadcast", "Multi-channel announcements (App Store, push)"},
-	{"jterrazz/jterrazz-infra", "Infrastructure and deployment (K3s, Helm, Traefik)"},
+}
+
+// CommunityRepos are third-party skill repositories
+var CommunityRepos = []SkillRepo{
 	{"anthropics/skills", "Official Anthropic skills for Claude"},
 	{"better-auth/skills", "Authentication best practices"},
 	{"code-with-beto/skills", "Beto's development skills"},
@@ -56,9 +62,32 @@ var SkillRepos = []SkillRepo{
 	{"vercel-labs/agent-skills", "Vercel React and web development skills"},
 }
 
+// SkillRepos is all repositories combined (studio + community)
+var SkillRepos = append(StudioRepos, CommunityRepos...)
+
 // GetAllSkillRepos returns all skill repositories
 func GetAllSkillRepos() []SkillRepo {
 	return SkillRepos
+}
+
+// GetStudioSkills returns @jterrazz skills
+func GetStudioSkills() []Skill {
+	return StudioSkills
+}
+
+// GetCommunitySkills returns third-party skills
+func GetCommunitySkills() []Skill {
+	return CommunitySkills
+}
+
+// GetStudioRepos returns @jterrazz skill repositories
+func GetStudioRepos() []SkillRepo {
+	return StudioRepos
+}
+
+// GetCommunityRepos returns third-party skill repositories
+func GetCommunityRepos() []SkillRepo {
+	return CommunityRepos
 }
 
 // GetSkillRepoByName returns a skill repo by name

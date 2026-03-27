@@ -48,13 +48,35 @@ func BuildSkillsItems() []components.Item {
 	var items []components.Item
 	skills.itemData = nil
 
-	// Favorites section
-	favorites := config.GetFavoriteSkills()
-	if len(favorites) > 0 {
-		items = append(items, components.Item{Kind: components.KindHeader, Label: "Pinned"})
+	// Studio skills section (@jterrazz)
+	studioSkills := config.GetStudioSkills()
+	if len(studioSkills) > 0 {
+		items = append(items, components.Item{Kind: components.KindHeader, Label: "Studio"})
 		skills.itemData = append(skills.itemData, skillItemData{})
 
-		for _, s := range favorites {
+		for _, s := range studioSkills {
+			state := components.StateUnchecked
+			if skills.loadingSkill == s.Skill {
+				state = components.StateLoading
+			} else if isSkillInstalled(s.Skill) {
+				state = components.StateChecked
+			}
+			items = append(items, components.Item{
+				Kind:  components.KindToggle,
+				Label: s.Skill,
+				State: state,
+			})
+			skills.itemData = append(skills.itemData, skillItemData{repo: s.Repo, skill: s.Skill})
+		}
+	}
+
+	// Community skills section
+	communitySkills := config.GetCommunitySkills()
+	if len(communitySkills) > 0 {
+		items = append(items, components.Item{Kind: components.KindHeader, Label: "Community"})
+		skills.itemData = append(skills.itemData, skillItemData{})
+
+		for _, s := range communitySkills {
 			state := components.StateUnchecked
 			if skills.loadingSkill == s.Skill {
 				state = components.StateLoading
