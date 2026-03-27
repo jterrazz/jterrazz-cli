@@ -31,7 +31,7 @@ npm init -y
   "repository": { "type": "git", "url": "https://github.com/jterrazz/package-{name}" },
   "scripts": {
     "build": "typescript bundle",
-    "lint": "codestyle",
+    "lint": "codestyle check",
     "lint:fix": "codestyle fix",
     "test": "vitest --run"
   },
@@ -95,7 +95,7 @@ Same as library but with these differences:
   "build": "typescript build",
   "start": "typescript start",
   "dev": "typescript dev",
-  "lint": "codestyle",
+  "lint": "codestyle check",
   "lint:fix": "codestyle fix",
   "test": "vitest --run"
 }

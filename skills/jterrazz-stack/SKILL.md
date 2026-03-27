@@ -12,7 +12,7 @@ All projects share a composable set of npm packages under the `@jterrazz` scope.
 | Package | Purpose | npm script |
 |---------|---------|------------|
 | `@jterrazz/typescript` | Build tooling (tsdown) | `typescript build`, `typescript bundle`, `typescript dev`, `typescript start` |
-| `@jterrazz/codestyle` | Linting + formatting (tsgo, oxlint, oxfmt) | `codestyle`, `codestyle fix` |
+| `@jterrazz/codestyle` | Linting + formatting (tsgo, oxlint, oxfmt) | `codestyle check`, `codestyle fix` |
 | `@jterrazz/test` | Test utilities (vitest, MSW, mockDate) | `vitest --run` |
 | `@jterrazz/logger` | Structured logging (pino) | — |
 | `@jterrazz/intelligence` | AI toolkit (OpenRouter, Langfuse) | — |
@@ -24,7 +24,7 @@ All projects share a composable set of npm packages under the `@jterrazz` scope.
 ```json
 {
   "build": "typescript bundle",
-  "lint": "codestyle",
+  "lint": "codestyle check",
   "lint:fix": "codestyle fix",
   "test": "vitest --run"
 }
@@ -36,7 +36,7 @@ All projects share a composable set of npm packages under the `@jterrazz` scope.
   "build": "typescript build",
   "start": "typescript start",
   "dev": "typescript dev",
-  "lint": "codestyle",
+  "lint": "codestyle check",
   "lint:fix": "codestyle fix",
   "test": "vitest --run"
 }
