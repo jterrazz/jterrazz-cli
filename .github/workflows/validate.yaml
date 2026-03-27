@@ -1,0 +1,11 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    uses: jterrazz/jterrazz-workflows/.github/workflows/validate.yaml@main
