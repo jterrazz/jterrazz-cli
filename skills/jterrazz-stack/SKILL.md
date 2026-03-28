@@ -78,9 +78,10 @@ Defined by `@jterrazz/test` — all projects follow the same structure:
 - **Unit** (`thing.test.ts`) — colocated next to source, no I/O
 - **Integration** (`thing.integration.test.ts`) — in `tests/integration/`, real adapters
 - **E2E** (`thing.e2e.test.ts`) — in `tests/e2e/`, full system
-- One folder per test, data colocated (`inputs/`, `expected/`, `seeds/`, `responses/`, `api/`)
-- No `fixtures/` — name folders for what the data represents
-- Shared utilities in `tests/helpers/`
+- One folder per test, data colocated (`seeds/`, `requests/`, `responses/`, `mock/`, `expected/`)
+- `tests/setup/` for infrastructure (Docker, DB init, migrations)
+- `tests/fixtures/` for shared fake things to test against (sample apps)
+- `tests/helpers/` for shared test utilities
 
 ## Architecture pattern
 
