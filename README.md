@@ -8,14 +8,14 @@ A single CLI to bootstrap and manage a macOS development machine — tools, conf
 
 ```sh
 xcode-select --install
-curl -fsSL https://raw.githubusercontent.com/jterrazz/jterrazz-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jterrazz/jterrazz-studio/main/scripts/install.sh | sh
 source ~/.zshrc
 ```
 
 **From source** (requires Go 1.24+):
 
 ```sh
-git clone https://github.com/jterrazz/jterrazz-cli.git ~/Developer/jterrazz-cli
+git clone https://github.com/jterrazz/jterrazz-studio.git ~/Developer/jterrazz-cli
 cd ~/Developer/jterrazz-cli
 make install
 source ~/.zshrc

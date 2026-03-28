@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-REPO="jterrazz/jterrazz-cli"
+REPO="jterrazz/jterrazz-studio"
 BINARY="j"
 INSTALL_DIR="$HOME/.jterrazz/bin"
-REPO_DIR="$HOME/Developer/jterrazz-cli"
+REPO_DIR="$HOME/Developer/jterrazz-studio"
 
 # Detect platform
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -30,7 +30,7 @@ curl -fsSL "$URL" -o "$INSTALL_DIR/$BINARY"
 chmod +x "$INSTALL_DIR/$BINARY"
 echo "✓ Installed $INSTALL_DIR/$BINARY ($TAG)"
 
-# Clone repo for dotfiles/blueprints
+# Clone repo for dotfiles/skills
 if [ ! -d "$REPO_DIR" ]; then
   mkdir -p "$HOME/Developer"
   git clone "https://github.com/$REPO.git" "$REPO_DIR"
@@ -41,7 +41,7 @@ fi
 ZSHRC_LINE="source $REPO_DIR/dotfiles/applications/zsh/zshrc.sh"
 if [ -f "$HOME/.zshrc" ]; then
   if ! grep -q "zshrc.sh" "$HOME/.zshrc"; then
-    printf '\n# jterrazz-cli\n%s\n' "$ZSHRC_LINE" >> "$HOME/.zshrc"
+    printf '\n# jterrazz-studio\n%s\n' "$ZSHRC_LINE" >> "$HOME/.zshrc"
     echo "✓ Added source to ~/.zshrc"
   fi
 fi
