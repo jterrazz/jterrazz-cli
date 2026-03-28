@@ -20,6 +20,7 @@ var StudioSkills = []Skill{
 	{"jterrazz/package-typescript", "jterrazz-typescript"},
 	{"jterrazz/package-codestyle", "jterrazz-codestyle"},
 	{"jterrazz/package-broadcast", "jterrazz-broadcast"},
+	{"jterrazz/package-test", "jterrazz-test"},
 	{"jterrazz/jterrazz-workflows", "jterrazz-workflows"},
 }
 
@@ -45,6 +46,7 @@ var StudioRepos = []SkillRepo{
 	{"jterrazz/package-typescript", "TypeScript build tooling (tsdown)"},
 	{"jterrazz/package-codestyle", "Linting and formatting (oxlint, oxfmt, tsgo)"},
 	{"jterrazz/package-broadcast", "Multi-channel announcements (App Store, push)"},
+	{"jterrazz/package-test", "Testing utilities (vitest mocks)"},
 }
 
 // CommunityRepos are third-party skill repositories
