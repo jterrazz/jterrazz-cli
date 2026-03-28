@@ -5,7 +5,7 @@ description: Overview of the @jterrazz ecosystem — shared npm packages, naming
 
 # @jterrazz Stack
 
-All projects share a composable set of npm packages under the `@jterrazz` scope.
+The @jterrazz ecosystem is a set of composable packages that define how every project builds, lints, tests, logs, and deploys. Each package owns one concern and all projects follow the same conventions.
 
 ## Packages
 
@@ -78,7 +78,9 @@ Defined by `@jterrazz/test` — all projects follow the same structure:
 - **Unit** (`thing.test.ts`) — colocated next to source, no I/O
 - **Integration** (`thing.integration.test.ts`) — in `tests/integration/`, real adapters
 - **E2E** (`thing.e2e.test.ts`) — in `tests/e2e/`, full system
-- **Fixtures** in `tests/fixtures/`, **helpers** in `tests/helpers/`
+- One folder per test, data colocated (`inputs/`, `expected/`, `seeds/`, `responses/`, `api/`)
+- No `fixtures/` — name folders for what the data represents
+- Shared utilities in `tests/helpers/`
 
 ## Architecture pattern
 
