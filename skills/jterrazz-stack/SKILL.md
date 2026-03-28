@@ -13,7 +13,7 @@ All projects share a composable set of npm packages under the `@jterrazz` scope.
 |---------|---------|------------|
 | `@jterrazz/typescript` | Build tooling (tsdown) | `typescript build`, `typescript bundle`, `typescript dev`, `typescript start` |
 | `@jterrazz/codestyle` | Linting + formatting (tsgo, oxlint, oxfmt) | `codestyle check`, `codestyle fix` |
-| `@jterrazz/test` | Test utilities (vitest, MSW, mockDate) | `vitest --run` |
+| `@jterrazz/test` | Testing framework — conventions, structure, mocking | `vitest --run` |
 | `@jterrazz/logger` | Structured logging (pino) | — |
 | `@jterrazz/intelligence` | AI toolkit (OpenRouter, Langfuse) | — |
 | `@jterrazz/broadcast` | Multi-channel announcements (App Store, push) | — |
@@ -70,6 +70,15 @@ Shared workflows from `jterrazz/jterrazz-workflows`:
 - `validate.yaml` — runs `make build`, `make lint`, `make test`
 - `release-docker.yaml` — Docker build + Helm deploy
 - `release-npm.yaml` — npm publish with OIDC provenance
+
+## Testing convention
+
+Defined by `@jterrazz/test` — all projects follow the same structure:
+
+- **Unit** (`thing.test.ts`) — colocated next to source, no I/O
+- **Integration** (`thing.integration.test.ts`) — in `tests/integration/`, real adapters
+- **E2E** (`thing.e2e.test.ts`) — in `tests/e2e/`, full system
+- **Fixtures** in `tests/fixtures/`, **helpers** in `tests/helpers/`
 
 ## Architecture pattern
 
