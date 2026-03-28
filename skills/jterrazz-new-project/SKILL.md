@@ -47,7 +47,7 @@ npm init -y
 
 **tsconfig.json:**
 ```json
-{ "extends": "@jterrazz/typescript/tsconfig/node" }
+{ "extends": "@jterrazz/typescript/presets/tsconfig/node" }
 ```
 
 **.oxlintrc.json:**
