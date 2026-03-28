@@ -68,8 +68,8 @@ Every project must have:
 
 Shared workflows from `jterrazz/jterrazz-workflows`:
 - `validate.yaml` — runs `make build`, `make lint`, `make test`
-- `build-and-deploy.yaml` — Docker build + Helm deploy for apps
-- `publish-package.yaml` — npm publish with OIDC provenance for libraries
+- `release-docker.yaml` — Docker build + Helm deploy
+- `release-npm.yaml` — npm publish with OIDC provenance
 
 ## Architecture pattern
 

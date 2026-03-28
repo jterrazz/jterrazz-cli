@@ -131,7 +131,7 @@ permissions:
   id-token: write
 jobs:
   publish:
-    uses: jterrazz/jterrazz-workflows/.github/workflows/publish-package.yaml@main
+    uses: jterrazz/jterrazz-workflows/.github/workflows/release-npm.yaml@main
     with:
       node-version: "24"
     secrets: inherit

@@ -15,8 +15,8 @@ source ~/.zshrc
 **From source** (requires Go 1.24+):
 
 ```sh
-git clone https://github.com/jterrazz/jterrazz-studio.git ~/Developer/jterrazz-cli
-cd ~/Developer/jterrazz-cli
+git clone https://github.com/jterrazz/jterrazz-studio.git ~/Developer/jterrazz-studio
+cd ~/Developer/jterrazz-studio
 make install
 source ~/.zshrc
 ```
