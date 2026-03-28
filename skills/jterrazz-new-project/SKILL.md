@@ -52,7 +52,7 @@ npm init -y
 
 **.oxlintrc.json:**
 ```json
-{ "extends": ["@jterrazz/codestyle/presets/oxlint/node.json"] }
+{ "extends": ["node_modules/@jterrazz/codestyle/presets/oxlint/node.json"] }
 ```
 
 **.gitignore:**
