@@ -61,7 +61,7 @@ Roles: `-api`, `-web`, `-mobile`, `-broadcast`, `-blueprint`, `-landing`
 Every project must have:
 - `Makefile` with `build`, `lint`, `test` targets
 - `tsconfig.json` extending `@jterrazz/typescript/presets/tsconfig/node`
-- `.oxlintrc.json` extending `@jterrazz/codestyle/oxlint/node`
+- `.oxlintrc.json` extending `@jterrazz/codestyle/presets/oxlint/node.json`
 - `.github/workflows/validate.yaml` using shared workflow
 
 ## CI/CD
