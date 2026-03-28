@@ -76,12 +76,12 @@ Shared workflows from `jterrazz/jterrazz-workflows`:
 Defined by `@jterrazz/test` — all projects follow the same structure:
 
 - **Unit** (`thing.test.ts`) — colocated next to source, no I/O
-- **Integration** (`thing.integration.test.ts`) — in `tests/integration/`, real adapters
-- **E2E** (`thing.e2e.test.ts`) — in `tests/e2e/`, full system
+- **Integration** (`thing.integration.test.ts`) — testcontainers + in-process app
+- **E2E** (`thing.e2e.test.ts`) — full docker compose, real HTTP
+- Docker required — `docker/compose.test.yaml` defines test infrastructure
+- Service factories: `postgres({ compose: "db" })`, `redis({ compose: "cache" })`
 - One folder per test, data colocated (`seeds/`, `requests/`, `responses/`, `mock/`, `expected/`)
-- `tests/setup/` for infrastructure (Docker, DB init, migrations)
-- `tests/fixtures/` for shared fake things to test against (sample apps)
-- `tests/helpers/` for shared test utilities
+- `tests/setup/` for infrastructure, `tests/fixtures/` for sample apps, `tests/helpers/` for utilities
 
 ## Architecture pattern
 
