@@ -31,6 +31,7 @@ var CommunitySkills = []Skill{
 	{"shadcn-ui/ui", "shadcn"},
 	{"sickn33/antigravity-awesome-skills", "last30days"},
 	{"tobi/qmd", "qmd"},
+	{"vercel-labs/agent-browser", "agent-browser"},
 	{"vercel-labs/agent-skills", "vercel-react-best-practices"},
 	{"vercel-labs/agent-skills", "vercel-react-native-skills"},
 }
@@ -63,6 +64,7 @@ var CommunityRepos = []SkillRepo{
 	{"resend/email-best-practices", "Email development best practices"},
 	{"supabase/agent-skills", "Supabase database and backend skills"},
 	{"tobi/qmd", "Local search engine for docs and knowledge bases"},
+	{"vercel-labs/agent-browser", "Browser automation CLI for AI agents"},
 	{"vercel-labs/agent-skills", "Vercel React and web development skills"},
 }
 
