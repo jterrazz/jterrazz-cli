@@ -4,7 +4,7 @@ set -e
 REPO="jterrazz/jterrazz-studio"
 BINARY="j"
 INSTALL_DIR="$HOME/.jterrazz/bin"
-REPO_DIR="$HOME/Developer/jterrazz-studio"
+REPO_DIR="$HOME/Developer/jterrazz/jterrazz-studio"
 
 # Detect platform
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
