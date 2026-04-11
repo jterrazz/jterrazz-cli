@@ -1,0 +1,14 @@
+{
+  "name": "jterrazz-studio-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "vitest --run"
+  },
+  "devDependencies": {
+    "@jterrazz/test": "^5.1.0",
+    "@types/node": "^25.5.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.2"
+  }
+}

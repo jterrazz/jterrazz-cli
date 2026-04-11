@@ -1,0 +1,5 @@
+_commit: abc123
+_src_path: /some/template
+project_name: test-project
+language: go
+license: MIT

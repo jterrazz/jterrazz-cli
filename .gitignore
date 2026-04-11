@@ -6,6 +6,7 @@ bin/
 
 # Test
 tests/e2e/j_test_bin
+node_modules/
 
 # IDE
 .idea/

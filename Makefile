@@ -1,4 +1,4 @@
-.PHONY: build install uninstall check test clean fmt vet lint help
+.PHONY: build install uninstall check test test-e2e clean fmt vet lint help
 
 # ==============================================================================
 # Configuration
@@ -80,8 +80,12 @@ check: ## Verify installation
 		printf "✗ ~/.jterrazz not found\n"; \
 	fi
 
-test: ## Run tests
+test: ## Run Go unit tests
 	@go test ./src/...
+
+test-e2e: ## Run end-to-end tests (requires npm + copier)
+	@npm install --silent
+	@J_FORCE_REBUILD=1 npx vitest --run
 
 fmt: ## Format Go source files
 	@gofmt -w ./src/
