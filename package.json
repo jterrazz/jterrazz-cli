@@ -6,7 +6,7 @@
     "test:e2e": "vitest --run"
   },
   "devDependencies": {
-    "@jterrazz/test": "^5.1.0",
+    "@jterrazz/test": "^5.2.0",
     "@types/node": "^25.5.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.2"

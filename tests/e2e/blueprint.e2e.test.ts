@@ -24,25 +24,18 @@ async function runBlueprint(variant: BlueprintVariant): Promise<void> {
     .join(" ");
 
   // Generate the project into a fresh temp working directory.
-  // empty-project provides a `.gitkeep` placeholder so the framework gives us
-  // an isolated tempdir; we ignore it from snapshots below.
   const result = await copierSpec(`scaffold ${variant.name}`)
-    .project("empty-project")
-    .exec(`copy --trust --defaults --quiet --overwrite ${dataArgs} ${TEMPLATE_PATH} .`)
+    .exec(`copy --trust --defaults --quiet ${dataArgs} ${TEMPLATE_PATH} .`)
     .run();
 
   expect(result.exitCode, result.stderr || result.stdout).toBe(0);
 
   // Snapshot the entire generated tree against the committed fixture.
-  await result
-    .directory(".")
-    .toMatchFixture(variant.name, { ignore: [".gitkeep", ".copier-answers.yml"] });
+  await result.directory(".").toMatchFixture(variant.name);
 
   // Bonus: explicit presence/absence checks against the fixture file list.
   if (variant.wantFiles || variant.excludedFiles) {
-    const files = new Set(
-      await result.directory(".").files({ ignore: [".gitkeep", ".copier-answers.yml"] }),
-    );
+    const files = new Set(await result.directory(".").files());
     for (const want of variant.wantFiles ?? []) {
       expect(files.has(want), `expected file ${want}`).toBe(true);
     }
@@ -255,9 +248,8 @@ describe("blueprint — go", () => {
 describe("blueprint — content checks", () => {
   test("MIT license contains author", async () => {
     const result = await copierSpec("license mit")
-      .project("empty-project")
       .exec(
-        `copy --trust --defaults --quiet --overwrite --data project_name=x --data language=none --data project_type=none --data license=MIT --data ci=false --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
+        `copy --trust --defaults --quiet --data project_name=x --data language=none --data project_type=none --data license=MIT --data ci=false --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
       )
       .run();
 
@@ -269,9 +261,8 @@ describe("blueprint — content checks", () => {
 
   test("proprietary license", async () => {
     const result = await copierSpec("license proprietary")
-      .project("empty-project")
       .exec(
-        `copy --trust --defaults --quiet --overwrite --data project_name=x --data language=none --data project_type=none --data license=proprietary --data ci=false --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
+        `copy --trust --defaults --quiet --data project_name=x --data language=none --data project_type=none --data license=proprietary --data ci=false --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
       )
       .run();
 
@@ -289,9 +280,8 @@ describe("blueprint — content checks", () => {
 
     for (const tc of cases) {
       const result = await copierSpec(`tsconfig ${tc.project_type}`)
-        .project("empty-project")
         .exec(
-          `copy --trust --defaults --quiet --overwrite --data project_name=x --data language=typescript --data project_type=${tc.project_type} --data license=MIT --data ci=true --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
+          `copy --trust --defaults --quiet --data project_name=x --data language=typescript --data project_type=${tc.project_type} --data license=MIT --data ci=true --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
         )
         .run();
 
@@ -302,9 +292,8 @@ describe("blueprint — content checks", () => {
 
   test("workflow files have no leftover {% raw %} tags", async () => {
     const result = await copierSpec("raw escape")
-      .project("empty-project")
       .exec(
-        `copy --trust --defaults --quiet --overwrite --data project_name=x --data language=typescript --data project_type=library --data license=MIT --data ci=true --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
+        `copy --trust --defaults --quiet --data project_name=x --data language=typescript --data project_type=library --data license=MIT --data ci=true --data docker=false --data deploy=none ${TEMPLATE_PATH} .`,
       )
       .run();
 

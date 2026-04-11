@@ -56,7 +56,6 @@ describe("j sync", () => {
   test("sync status — unlinked directory", async () => {
     // Given — empty temp dir, no .copier-answers.yml
     const result = await jSpec("sync status unlinked")
-      .project("empty-project")
       .exec("sync status")
       .run();
 
@@ -84,7 +83,7 @@ describe("j sync", () => {
   });
 
   test("sync (no subcommand, unlinked) — warns to run init", async () => {
-    const result = await jSpec("sync unlinked").project("empty-project").exec("sync").run();
+    const result = await jSpec("sync unlinked").exec("sync").run();
     const output = result.stdout + result.stderr;
     expect(output).toContain("No .copier-answers.yml");
     expect(output).toContain("j sync init");
@@ -92,7 +91,6 @@ describe("j sync", () => {
 
   test("sync diff — unlinked", async () => {
     const result = await jSpec("sync diff unlinked")
-      .project("empty-project")
       .exec("sync diff")
       .run();
     expect(result.stdout + result.stderr).toContain("No .copier-answers.yml");
