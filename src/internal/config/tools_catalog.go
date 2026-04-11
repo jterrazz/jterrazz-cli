@@ -609,6 +609,13 @@ var Tools = []Tool{
 		CheckFn:      checkApp("Cursor"),
 	},
 	{
+		Name:        "typewhisper",
+		Description: "Whisper-based dictation app",
+		Method:      InstallManual,
+		Category:    CategoryAIApps,
+		CheckFn:     checkApp("TypeWhisper"),
+	},
+	{
 		Name:         "discord",
 		Description:  "Voice and text chat",
 		Formula:      "discord",
