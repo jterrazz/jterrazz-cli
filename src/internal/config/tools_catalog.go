@@ -435,6 +435,16 @@ var Tools = []Tool{
 		Scripts:      []string{"claude"},
 	},
 	{
+		Name:         "inferrs",
+		Description:  "TurboQuant LLM inference server",
+		Command:      "inferrs",
+		Formula:      "ericcurtin/inferrs/inferrs",
+		Method:       InstallBrewFormula,
+		Category:     CategoryAITooling,
+		Dependencies: []string{"homebrew"},
+		VersionFn:    tool.VersionFromCmd("inferrs", []string{"--version"}, tool.TrimVersion),
+	},
+	{
 		Name:         "agent-browser",
 		Command:      "agent-browser",
 		Formula:      "agent-browser",
