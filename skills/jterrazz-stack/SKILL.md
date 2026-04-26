@@ -66,7 +66,7 @@ Every project must have:
 
 ## CI/CD
 
-Shared workflows from `jterrazz/jterrazz-workflows`:
+Shared workflows from `jterrazz/jterrazz-actions`:
 - `validate.yaml` — runs `make build`, `make lint`, `make test`
 - `release-docker.yaml` — Docker build + Helm deploy
 - `release-npm.yaml` — npm publish with OIDC provenance

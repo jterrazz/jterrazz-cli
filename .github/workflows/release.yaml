@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    uses: jterrazz/jterrazz-workflows/.github/workflows/release-go.yaml@main
+    uses: jterrazz/jterrazz-actions/.github/workflows/release-go.yaml@main
     with:
       binary-name: j
       build-path: ./src/cmd/j

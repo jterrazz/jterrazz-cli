@@ -8,4 +8,4 @@ on:
 
 jobs:
   validate:
-    uses: jterrazz/jterrazz-workflows/.github/workflows/validate.yaml@main
+    uses: jterrazz/jterrazz-actions/.github/workflows/validate.yaml@main

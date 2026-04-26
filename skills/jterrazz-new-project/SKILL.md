@@ -115,7 +115,7 @@ on:
     branches: [main]
 jobs:
   validate:
-    uses: jterrazz/jterrazz-workflows/.github/workflows/validate.yaml@main
+    uses: jterrazz/jterrazz-actions/.github/workflows/validate.yaml@main
     with:
       node-version: "24"
 ```
@@ -131,7 +131,7 @@ permissions:
   id-token: write
 jobs:
   publish:
-    uses: jterrazz/jterrazz-workflows/.github/workflows/release-npm.yaml@main
+    uses: jterrazz/jterrazz-actions/.github/workflows/release-npm.yaml@main
     with:
       node-version: "24"
     secrets: inherit
