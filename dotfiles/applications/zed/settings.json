@@ -7,34 +7,64 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-  "agent": {
-    "tool_permissions": {
-      "default": "allow"
-    },
-    "model_parameters": []
+  // "project_panel": {
+  //   "dock": "right"
+  // },
+  // "outline_panel": {
+  //   "dock": "right"
+  // },
+  // "collaboration_panel": {
+  //   "dock": "right"
+  // },
+  // "git_panel": {
+  //   "dock": "right"
+  // },
+  // "agent": {
+  //   "dock": "left",
+  //   "tool_permissions": {
+  //     "default": "allow"
+  //   },
+  //   "model_parameters": []
+  // },
+  "outline_panel": {
+    "dock": "right"
   },
-  "agent_ui_font_size": 15.0,
+  "agent": {
+    "sidebar_side": "right",
+    "dock": "right"
+  },
+  "git_panel": {
+    "dock": "left"
+  },
+  "collaboration_panel": {
+    "dock": "left",
+    "button": true
+  },
+  "project_panel": {
+    "dock": "left"
+  },
+  "agent_ui_font_size": 15.6,
   "autosave": "on_focus_change",
   "auto_indent_on_paste": true,
   "minimap": {
     "show": "auto"
   },
   "terminal": {
-    "font_size": 12.0
+    "font_size": 13.0
   },
   "base_keymap": "VSCode",
   "icon_theme": {
-    "mode": "light",
-    "light": "Zed (Default)",
-    "dark": "Zed (Default)"
+    "mode": "system",
+    "light": "Bearded Icon Theme",
+    "dark": "Base Charmed Icons"
   },
   "tab_size": 4,
-  "ui_font_size": 15,
-  "buffer_font_size": 12.0,
+  "ui_font_size": 15.4,
+  "buffer_font_size": 13,
   "theme": {
-    "mode": "dark",
-    "light": "One Light",
-    "dark": "Catppuccin Mocha - No Italics"
+    "mode": "system",
+    "light": "Catppuccin Latte (Blur) [Heavy]",
+    "dark": "Catppuccin Espresso (Blur) [Heavy]"
   },
   "agent_servers": {
     "codex-acp": {
@@ -45,9 +75,7 @@
       "default_mode": "bypassPermissions",
       "default_model": "default",
       "favorite_config_option_values": {
-        "mode": [
-          "bypassPermissions"
-        ]
+        "mode": ["bypassPermissions"]
       }
     },
     "gemini-custom": {
