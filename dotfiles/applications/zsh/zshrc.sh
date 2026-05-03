@@ -1,6 +1,45 @@
 # jterrazz shell configuration
 # This file is sourced by ~/.zshrc
 
+# =============================================================================
+# Catppuccin Macchiato palette (matches Zed/Ghostty themes)
+#   ANSI 1=red(#ed8796) 2=green(#a6da95) 3=yellow(#eed49f) 4=blue(#8aadf4)
+#        5=magenta(#f5bde6) 6=cyan(#8bd5ca) 7=white(#a5adcb)
+# =============================================================================
+
+# Prompt: blue path (Zed function blue) + trailing space.
+PROMPT="%(?:%{$fg_bold[green]%}➜ :%{$fg_bold[red]%}➜ ) %{$fg[blue]%}%c%{$reset_color%} "
+
+# ls colors (BSD): dirs=blue, links=cyan, sockets=red, pipes=yellow, exec=green.
+export CLICOLOR=1
+export LSCOLORS="ExGxBxDxCxegedabagacad"
+
+# Tab completion menu: re-uses ls colors.
+zstyle ':completion:*' list-colors 'di=34:ln=36:so=31:pi=33:ex=32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43'
+
+# grep --color: match=red bold, filename=magenta, line number=green.
+export GREP_COLORS='ms=01;31:mc=01;31:sl=:cx=:fn=35:ln=32:bn=32:se=36'
+
+# man pages (via less): headings=blue bold, search=yellow bg, emphasis=green.
+export LESS_TERMCAP_mb=$'\e[1;31m'
+export LESS_TERMCAP_md=$'\e[1;34m'
+export LESS_TERMCAP_me=$'\e[0m'
+export LESS_TERMCAP_so=$'\e[30;43m'
+export LESS_TERMCAP_se=$'\e[0m'
+export LESS_TERMCAP_us=$'\e[1;32m'
+export LESS_TERMCAP_ue=$'\e[0m'
+export LESS=-R
+export MANPAGER='less -R --use-color -Dd+r -Du+b'
+
+# fzf (if installed): full Macchiato port.
+export FZF_DEFAULT_OPTS="\
+--color=bg+:#363a4f,bg:#24273a,spinner:#f4dbd6,hl:#ed8796 \
+--color=fg:#cad3f5,header:#ed8796,info:#c6a0f6,pointer:#f4dbd6 \
+--color=marker:#f4dbd6,fg+:#cad3f5,prompt:#c6a0f6,hl+:#ed8796"
+
+# bat (if installed).
+export BAT_THEME="Catppuccin Macchiato"
+
 # jterrazz CLI binary
 export PATH="$HOME/.jterrazz/bin:$PATH"
 
