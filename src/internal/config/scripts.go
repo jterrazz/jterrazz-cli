@@ -264,9 +264,24 @@ var runClaudeConfig = makeConfigInstaller("Claude Code",
 	"dotfiles/applications/claude/settings.json",
 	os.Getenv("HOME")+"/.claude/settings.json")
 
-var runGhosttyConfig = makeConfigInstaller("Ghostty",
-	"dotfiles/applications/ghostty/config",
-	os.Getenv("HOME")+"/Library/Application Support/com.mitchellh.ghostty/config")
+func runGhosttyConfig() error {
+	ghosttyDir := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty"
+	install := makeConfigInstaller("Ghostty",
+		"dotfiles/applications/ghostty/config",
+		ghosttyDir+"/config")
+	if err := install(); err != nil {
+		return err
+	}
+
+	themes := []string{"catppuccin-espresso-blur", "catppuccin-latte-blur"}
+	for _, name := range themes {
+		if err := copyRepoConfig("dotfiles/applications/ghostty/themes/"+name, ghosttyDir+"/themes/"+name); err != nil {
+			return fmt.Errorf("failed to install Ghostty theme %s: %w", name, err)
+		}
+	}
+	fmt.Println(out.Green("Done - Ghostty themes installed"))
+	return nil
+}
 
 func runTmuxConfig() error {
 	configPath := os.Getenv("HOME") + "/.tmux.conf"

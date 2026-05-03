@@ -1,12 +1,14 @@
-theme = "Catppuccin Mocha"
-background = #0a0a10
+theme = light:catppuccin-latte-blur,dark:catppuccin-espresso-blur
+
+# Match Zed's "Blur [Heavy]" variants: 88% opacity (0xe0/0xff) + window blur
+background-opacity = 0.88
+background-blur = 60
+
 window-padding-x = 16
 window-padding-y = 6
+window-width = 104
 window-height = 24
-window-width = 100
-split-divider-color = #565f89
-unfocused-split-opacity = 0.6
-unfocused-split-fill = #0a0a10
+confirm-close-surface = false
 
 macos-option-as-alt = left
 
