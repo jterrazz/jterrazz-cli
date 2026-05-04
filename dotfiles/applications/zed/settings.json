@@ -66,6 +66,35 @@
     "light": "Catppuccin Latte (Blur) [Heavy]",
     "dark": "Catppuccin Espresso (Blur) [Heavy]"
   },
+  "auto_install_extensions": {
+    "ansible": true,
+    "bearded-icon-theme": true,
+    "catppuccin": true,
+    "catppuccin-blur": true,
+    "charmed-icons": true,
+    "dockerfile": true,
+    "git-firefly": true,
+    "graphql": true,
+    "html": true,
+    "java": true,
+    "make": true,
+    "nord": true,
+    "nvim-nightfox": true,
+    "opencode": true,
+    "oxc": true,
+    "prisma": true,
+    "scss": true,
+    "serendipity": true,
+    "sql": true,
+    "swift": true,
+    "terraform": true,
+    "tokyo-night": true,
+    "toml": true,
+    "vesper": true,
+    "vue": true,
+    "xml": true,
+    "zig": true
+  },
   "agent_servers": {
     "codex-acp": {
       "type": "registry"

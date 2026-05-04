@@ -81,8 +81,8 @@ var Scripts = []Script{
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "ghostty",
 		CheckFn: checkFileExists(
-			os.Getenv("HOME")+"/Library/Application Support/com.mitchellh.ghostty/config",
-			"~/Library/Application Support/com.mitchellh.ghostty/config"),
+			os.Getenv("HOME")+"/.config/ghostty/config",
+			"~/.config/ghostty/config"),
 		RunFn: runGhosttyConfig,
 	},
 	{
@@ -265,7 +265,7 @@ var runClaudeConfig = makeConfigInstaller("Claude Code",
 	os.Getenv("HOME")+"/.claude/settings.json")
 
 func runGhosttyConfig() error {
-	ghosttyDir := os.Getenv("HOME") + "/Library/Application Support/com.mitchellh.ghostty"
+	ghosttyDir := os.Getenv("HOME") + "/.config/ghostty"
 	install := makeConfigInstaller("Ghostty",
 		"dotfiles/applications/ghostty/config",
 		ghosttyDir+"/config")
