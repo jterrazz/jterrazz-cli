@@ -129,12 +129,11 @@ var Scripts = []Script{
 	},
 	{
 		Name:        "spotlight-exclude",
-		Description: "Exclude ~/Developer from Spotlight indexing",
+		Description: "Exclude ~/Developer from Spotlight (guided — opens Settings)",
 		Category:    ScriptCategorySecurity,
 		CheckFn: func() CheckResult {
-			marker := os.Getenv("HOME") + "/Developer/.metadata_never_index"
-			if _, err := os.Stat(marker); err == nil {
-				return InstalledWithDetail("~/Developer excluded")
+			if isSpotlightExcluded(os.Getenv("HOME") + "/Developer") {
+				return InstalledWithDetail("~/Developer in Spotlight Privacy list")
 			}
 			return CheckResult{}
 		},
@@ -478,29 +477,51 @@ Host *
 	return nil
 }
 
+// isSpotlightExcluded reports whether path is on the user's Spotlight Privacy list.
+// Modern macOS exposes no public API for per-folder exclusion; the list lives in
+// the com.apple.Spotlight defaults under Exclusions and is only writable via the
+// System Settings GUI.
+func isSpotlightExcluded(path string) bool {
+	out, err := exec.Command("defaults", "read", "com.apple.Spotlight", "Exclusions").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), path)
+}
+
 func runSpotlightExclude() error {
-	fmt.Println(out.Cyan("Excluding ~/Developer from Spotlight indexing..."))
-
 	devDir := os.Getenv("HOME") + "/Developer"
-	marker := devDir + "/.metadata_never_index"
-
 	if _, err := os.Stat(devDir); err != nil {
 		return fmt.Errorf("~/Developer directory does not exist")
 	}
 
-	if _, err := os.Stat(marker); err == nil {
-		fmt.Println(out.Green("Done - already excluded"))
+	if isSpotlightExcluded(devDir) {
+		fmt.Println(out.Green("Done - ~/Developer is already in Spotlight Privacy"))
 		return nil
 	}
 
-	f, err := os.Create(marker)
-	if err != nil {
-		return fmt.Errorf("failed to create .metadata_never_index: %w", err)
+	// Clean up the stale .metadata_never_index marker — it never worked
+	// inside a sub-folder, only at volume root.
+	staleMarker := devDir + "/.metadata_never_index"
+	if _, err := os.Stat(staleMarker); err == nil {
+		_ = os.Remove(staleMarker)
 	}
-	f.Close()
 
-	fmt.Println(out.Green("Done - ~/Developer excluded from Spotlight"))
-	fmt.Println(out.Dimmed("Spotlight will stop indexing this directory"))
+	fmt.Println(out.Cyan("Add ~/Developer to Spotlight Privacy"))
+	fmt.Println(out.Dimmed("macOS has no public API for this — it must be done in System Settings."))
+	fmt.Println()
+	fmt.Println("Steps:")
+	fmt.Println("  1. System Settings opens at Spotlight → Search Privacy")
+	fmt.Println("  2. Click + and pick ~/Developer (or drag the folder onto the list)")
+	fmt.Println("  3. Re-run `j status` to confirm")
+	fmt.Println()
+
+	if err := exec.Command("open", "x-apple.systempreferences:com.apple.Spotlight-Settings.extension").Run(); err != nil {
+		fmt.Println(out.Dimmed("Could not open Settings automatically — open System Settings → Spotlight → Search Privacy manually."))
+	}
+
+	// Brief pause so System Settings is on screen before the TUI redraws.
+	time.Sleep(1 * time.Second)
 	return nil
 }
 
