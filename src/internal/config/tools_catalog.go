@@ -492,6 +492,15 @@ var Tools = []Tool{
 		},
 	},
 	{
+		Name:         "betterdisplay",
+		Description:  "Flexible HiDPI scaling and display management",
+		Formula:      "betterdisplay",
+		Method:       InstallBrewCask,
+		Category:     CategorySystem,
+		Dependencies: []string{"homebrew"},
+		CheckFn:      checkAppWithCask("BetterDisplay", "betterdisplay"),
+	},
+	{
 		Name:         "conductor",
 		Formula:      "conductor",
 		Method:       InstallBrewCask,
