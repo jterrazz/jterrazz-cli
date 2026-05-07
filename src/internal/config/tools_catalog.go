@@ -39,7 +39,7 @@ var Tools = []Tool{
 	{
 		Name:         "bun",
 		Command:      "bun",
-		Formula:      "bun",
+		Formula:      "oven-sh/bun/bun",
 		Method:       InstallBrewFormula,
 		Category:     CategoryPackageManager,
 		Dependencies: []string{"homebrew"},
@@ -272,7 +272,7 @@ var Tools = []Tool{
 	{
 		Name:         "terraform",
 		Command:      "terraform",
-		Formula:      "terraform",
+		Formula:      "hashicorp/tap/terraform",
 		Method:       InstallBrewFormula,
 		Category:     CategoryDeploy,
 		Dependencies: []string{"homebrew"},

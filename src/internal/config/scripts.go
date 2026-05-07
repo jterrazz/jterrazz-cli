@@ -651,12 +651,30 @@ func generateDNSProfile() string {
 
 // GetRepoConfigPath returns the full path for a file in the repo
 func GetRepoConfigPath(relativePath string) (string, error) {
-	root := os.Getenv("HOME") + "/Developer/jterrazz-cli"
-	fullPath := root + "/" + relativePath
-	if _, err := os.Stat(fullPath); err == nil {
-		return fullPath, nil
+	for _, root := range repoRootCandidates() {
+		fullPath := root + "/" + relativePath
+		if _, err := os.Stat(fullPath); err == nil {
+			return fullPath, nil
+		}
 	}
-	return "", fmt.Errorf("config file not found: %s (expected at %s)", relativePath, fullPath)
+	candidates := repoRootCandidates()
+	return "", fmt.Errorf("config file not found: %s (searched: %s)", relativePath, strings.Join(candidates, ", "))
+}
+
+// repoRootCandidates returns candidate filesystem locations of the source repo,
+// in priority order. Set J_REPO_PATH to override.
+func repoRootCandidates() []string {
+	home := os.Getenv("HOME")
+	var roots []string
+	if env := os.Getenv("J_REPO_PATH"); env != "" {
+		roots = append(roots, env)
+	}
+	roots = append(roots,
+		home+"/Developer/jterrazz/jterrazz-studio",
+		home+"/Developer/jterrazz-studio",
+		home+"/Developer/jterrazz-cli",
+	)
+	return roots
 }
 
 // ExecCommand runs a command with stdout/stderr/stdin attached
