@@ -432,7 +432,6 @@ var Tools = []Tool{
 		Method:       InstallNpm,
 		Category:     CategoryAITooling,
 		Dependencies: []string{"node"},
-		Scripts:      []string{"claude"},
 	},
 	{
 		Name:         "inferrs",

@@ -69,13 +69,6 @@ var Scripts = []Script{
 		RunFn: runHushlogin,
 	},
 	{
-		Name:        "claude",
-		Description: "Install Claude Code settings (MCP servers)",
-		Category:    ScriptCategoryEditor,
-		CheckFn: checkFileExists(os.Getenv("HOME")+"/.claude/settings.json", "~/.claude/settings.json"),
-		RunFn: runClaudeConfig,
-	},
-	{
 		Name:         "ghostty",
 		Description:  "Install Ghostty terminal config",
 		Category:     ScriptCategoryTerminal,
@@ -259,10 +252,6 @@ func makeConfigInstaller(label, repoRelPath, destPath string) func() error {
 		return nil
 	}
 }
-
-var runClaudeConfig = makeConfigInstaller("Claude Code",
-	"dotfiles/applications/claude/settings.json",
-	os.Getenv("HOME")+"/.claude/settings.json")
 
 func runGhosttyConfig() error {
 	ghosttyDir := os.Getenv("HOME") + "/.config/ghostty"
