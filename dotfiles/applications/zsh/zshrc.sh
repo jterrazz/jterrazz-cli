@@ -46,6 +46,11 @@ export PATH="$HOME/.jterrazz/bin:$PATH"
 # Bun global binaries
 export PATH="$HOME/.bun/bin:$PATH"
 
+# nvm (brew install path) — guarded so it's a no-op when nvm isn't installed
+export NVM_DIR="$HOME/.nvm"
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
 # Start interactive shells in ~/Developer when opened from HOME.
 if [[ -o interactive && "$PWD" == "$HOME" && -d "$HOME/Developer" ]]; then
     cd "$HOME/Developer"

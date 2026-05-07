@@ -133,6 +133,7 @@ var Tools = []Tool{
 		Method:       InstallBrewFormula,
 		Category:     CategoryPackageManager,
 		Dependencies: []string{"homebrew"},
+		Scripts:      []string{"nvm"},
 		CheckFn: func() CheckResult {
 			nvmDir := os.Getenv("HOME") + "/.nvm"
 			if _, err := os.Stat(nvmDir); err != nil {

@@ -182,6 +182,19 @@ var Scripts = []Script{
 		RunFn: runJavaHome,
 	},
 	{
+		Name:         "nvm",
+		Description:  "Initialize per-user nvm state (~/.nvm)",
+		Category:     ScriptCategorySystem,
+		RequiresTool: "nvm",
+		CheckFn: func() CheckResult {
+			if _, err := os.Stat(os.Getenv("HOME") + "/.nvm"); err == nil {
+				return InstalledWithDetail("~/.nvm exists")
+			}
+			return CheckResult{}
+		},
+		RunFn: runNvmSetup,
+	},
+	{
 		Name:        "dock-reset",
 		Description: "Reset dock to system defaults",
 		Category:    ScriptCategorySystem,
@@ -523,6 +536,24 @@ func runJavaHome() error {
 
 	fmt.Println(out.Green("Done - JAVA_HOME configured in ~/.zshrc"))
 	fmt.Println(out.Dimmed("Run 'source ~/.zshrc' to apply"))
+	return nil
+}
+
+func runNvmSetup() error {
+	fmt.Println(out.Cyan("Setting up nvm..."))
+
+	nvmSh := "/opt/homebrew/opt/nvm/nvm.sh"
+	if _, err := os.Stat(nvmSh); err != nil {
+		return fmt.Errorf("nvm not installed via brew (expected %s). Run: j install nvm", nvmSh)
+	}
+
+	nvmDir := os.Getenv("HOME") + "/.nvm"
+	if err := os.MkdirAll(nvmDir, 0755); err != nil {
+		return fmt.Errorf("failed to create %s: %w", nvmDir, err)
+	}
+
+	fmt.Println(out.Green("Done - " + nvmDir + " ready"))
+	fmt.Println(out.Dimmed("Shell loader is in dotfiles/applications/zsh/zshrc.sh — open a new shell or `source ~/.zshrc`"))
 	return nil
 }
 
