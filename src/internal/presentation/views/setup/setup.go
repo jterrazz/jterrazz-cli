@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"io"
 	"os/exec"
 	"sort"
 
@@ -8,6 +9,18 @@ import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 )
+
+// fnExecCommand adapts a Go func() error into a tea.ExecCommand so it can be
+// run via tea.Exec — Bubble Tea releases the terminal before Run() and
+// restores it after, which is what interactive prompts (ssh-keygen, gpg) need.
+type fnExecCommand struct {
+	fn func() error
+}
+
+func (f *fnExecCommand) Run() error           { return f.fn() }
+func (*fnExecCommand) SetStdin(io.Reader)     {}
+func (*fnExecCommand) SetStdout(io.Writer)    {}
+func (*fnExecCommand) SetStderr(io.Writer)    {}
 
 // Action represents navigation/action items in setup
 type Action string
@@ -158,10 +171,21 @@ func HandleSelect(index int, item components.Item, runScript func(string)) tea.C
 		}
 
 	default:
-		// Check if script uses ExecArgs (needs full terminal control)
-		if script := config.GetScriptByName(name); script != nil && len(script.ExecArgs) > 0 {
+		script := config.GetScriptByName(name)
+
+		// ExecArgs: run a single subprocess with full terminal control
+		if script != nil && len(script.ExecArgs) > 0 {
 			c := exec.Command(script.ExecArgs[0], script.ExecArgs[1:]...)
 			return tea.ExecProcess(c, func(err error) tea.Msg {
+				return components.ActionDoneMsg{Message: "Completed " + name}
+			})
+		}
+
+		// Interactive RunFn: suspend the TUI so child commands can prompt
+		// the user (passphrases, key generation confirmations, etc.).
+		if script != nil && script.Interactive && script.RunFn != nil {
+			cmd := &fnExecCommand{fn: script.RunFn}
+			return tea.Exec(cmd, func(err error) tea.Msg {
 				return components.ActionDoneMsg{Message: "Completed " + name}
 			})
 		}

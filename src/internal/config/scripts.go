@@ -42,6 +42,11 @@ type Script struct {
 	// Use for interactive commands that need full terminal control
 	ExecArgs []string
 
+	// Interactive - when true, RunFn is wrapped in tea.Exec so the TUI is
+	// released while it runs. Required for any RunFn that prompts the user
+	// (passphrase entry, GPG key generation, etc.).
+	Interactive bool
+
 	// Dependencies
 	RequiresTool string // Tool that must be installed first (e.g., "openjdk")
 }
@@ -95,6 +100,7 @@ var Scripts = []Script{
 		Description:  "Configure GPG for commit signing",
 		Category:     ScriptCategorySecurity,
 		RequiresTool: "gpg",
+		Interactive:  true,
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
 			if err != nil {
@@ -111,8 +117,9 @@ var Scripts = []Script{
 		Name:        "ssh",
 		Description: "Generate SSH key with Keychain integration",
 		Category:    ScriptCategorySecurity,
-		CheckFn: checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
-		RunFn: runSSHSetup,
+		Interactive: true,
+		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
+		RunFn:       runSSHSetup,
 	},
 	{
 		Name:         "gh",
