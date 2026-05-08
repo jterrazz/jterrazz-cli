@@ -209,8 +209,10 @@ func remoteGUIHostChecks(profile hostProfile) []hostCheck {
 	return []hostCheck{
 		checkConsoleOwner(profile),
 		checkScreenSharing(profile),
-		checkJumpDesktop(profile),
+		checkJumpDesktopConnectApp(profile),
+		checkJumpDesktopClientApp(profile),
 		checkJumpDesktopProcess(profile),
+		checkJumpDesktopAudioDrivers(profile),
 		checkLockAfterLogin(profile),
 		checkAgentInbox(profile),
 	}
@@ -475,14 +477,20 @@ func checkScreenSharing(profile hostProfile) hostCheck {
 	return hostCheck{hostStateOK, "homelab", "Screen Sharing", "listening :5900", "usable after FileVault SSH unlock, not before"}
 }
 
-func checkJumpDesktop(profile hostProfile) hostCheck {
-	paths := []string{"/Applications/Jump Desktop Connect.app", "/Applications/Jump Desktop.app"}
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return hostCheck{hostStateOK, "homelab", "Jump Desktop", "installed", path}
-		}
+func checkJumpDesktopConnectApp(profile hostProfile) hostCheck {
+	path := "/Applications/Jump Desktop Connect.app"
+	if _, err := os.Stat(path); err == nil {
+		return hostCheck{hostStateOK, "homelab", "Jump Connect app", "installed", path}
 	}
-	return hostCheck{hostStateWarn, "homelab", "Jump Desktop", "missing", "install Jump Desktop Connect for GUI recovery"}
+	return hostCheck{hostStateWarn, "homelab", "Jump Connect app", "missing", "install Jump Desktop Connect for remote GUI recovery"}
+}
+
+func checkJumpDesktopClientApp(profile hostProfile) hostCheck {
+	path := "/Applications/Jump Desktop.app"
+	if _, err := os.Stat(path); err == nil {
+		return hostCheck{hostStateOK, "workstation", "Jump client app", "installed", path}
+	}
+	return hostCheck{hostStateInfo, "workstation", "Jump client app", "missing", "optional viewer app; Connect service is enough for this host"}
 }
 
 func checkJumpDesktopProcess(profile hostProfile) hostCheck {
@@ -499,6 +507,19 @@ func checkJumpDesktopProcess(profile hostProfile) hostCheck {
 		detail = "Jump processes found, but service process not obvious"
 	}
 	return hostCheck{state, "homelab", "Jump service", value, detail}
+}
+
+func checkJumpDesktopAudioDrivers(profile hostProfile) hostCheck {
+	out, _ := runOutput("ps", "-axo", "command")
+	hasOut := strings.Contains(out, "JumpAudio.driver")
+	hasIn := strings.Contains(out, "JumpAudioMic.driver")
+	if hasOut && hasIn {
+		return hostCheck{hostStateOK, "homelab", "Jump audio", "running", "speaker and microphone drivers loaded"}
+	}
+	if hasOut || hasIn {
+		return hostCheck{hostStateWarn, "homelab", "Jump audio", "partial", "one Jump audio driver is missing"}
+	}
+	return hostCheck{hostStateInfo, "homelab", "Jump audio", "not running", "optional; remote GUI may still work without audio"}
 }
 
 func checkLockAfterLogin(profile hostProfile) hostCheck {
