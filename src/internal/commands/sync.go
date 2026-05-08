@@ -139,7 +139,7 @@ func syncInit() {
 	templatePath, err := getTemplatePath()
 	if err != nil {
 		print.Error("Template not found: " + err.Error())
-		print.Dim("Make sure jterrazz-studio is cloned at ~/Developer/jterrazz/jterrazz-studio (or set J_REPO_PATH)")
+		print.Dim("Make sure jterrazz-cli is cloned at ~/Developer/jterrazz-cli (or set J_REPO_PATH)")
 		return
 	}
 

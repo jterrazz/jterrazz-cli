@@ -70,8 +70,8 @@ var Scripts = []Script{
 		Name:        "hushlogin",
 		Description: "Silence terminal login message",
 		Category:    ScriptCategoryTerminal,
-		CheckFn: checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
-		RunFn: runHushlogin,
+		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
+		RunFn:       runHushlogin,
 	},
 	{
 		Name:         "ghostty",
@@ -88,8 +88,8 @@ var Scripts = []Script{
 		Description:  "Install tmux config",
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "tmux",
-		CheckFn: checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
-		RunFn: runTmuxConfig,
+		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
+		RunFn:        runTmuxConfig,
 	},
 
 	// ==========================================================================
@@ -166,8 +166,8 @@ var Scripts = []Script{
 		Description:  "Install Zed editor config",
 		Category:     ScriptCategoryEditor,
 		RequiresTool: "zed",
-		CheckFn: checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
-		RunFn: runZedConfig,
+		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
+		RunFn:        runZedConfig,
 	},
 
 	// ==========================================================================
@@ -718,9 +718,9 @@ func repoRootCandidates() []string {
 		roots = append(roots, env)
 	}
 	roots = append(roots,
-		home+"/Developer/jterrazz/jterrazz-studio",
-		home+"/Developer/jterrazz-studio",
 		home+"/Developer/jterrazz-cli",
+		home+"/Developer/jterrazz/jterrazz-cli",
+		home+"/Developer/jterrazz-studio", // legacy location before repo rename
 	)
 	return roots
 }

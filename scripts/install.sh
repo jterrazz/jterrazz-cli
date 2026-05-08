@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-REPO="jterrazz/jterrazz-studio"
+REPO="jterrazz/jterrazz-cli"
 BINARY="j"
 INSTALL_DIR="$HOME/.jterrazz/bin"
-REPO_DIR="$HOME/Developer/jterrazz/jterrazz-studio"
+REPO_DIR="$HOME/Developer/jterrazz-cli"
 
 # Detect platform
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -41,7 +41,7 @@ fi
 ZSHRC_LINE="source $REPO_DIR/dotfiles/applications/zsh/zshrc.sh"
 if [ -f "$HOME/.zshrc" ]; then
   if ! grep -q "zshrc.sh" "$HOME/.zshrc"; then
-    printf '\n# jterrazz-studio\n%s\n' "$ZSHRC_LINE" >> "$HOME/.zshrc"
+    printf '\n# jterrazz-cli\n%s\n' "$ZSHRC_LINE" >> "$HOME/.zshrc"
     echo "✓ Added source to ~/.zshrc"
   fi
 fi
