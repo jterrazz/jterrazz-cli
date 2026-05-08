@@ -54,6 +54,9 @@ describe("j CLI — help and metadata", () => {
     expect(output).toContain("Profile: homelab");
     expect(output).toContain("OpenClaw");
     expect(output).toContain("Console");
+    expect(output).toContain("Auto boot");
+    expect(output).toContain("Wake network");
+    expect(output).toContain("Power button");
     expect(output).toContain("OrbStack bg agent");
   });
 });

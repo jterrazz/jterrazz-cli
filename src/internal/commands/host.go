@@ -140,7 +140,10 @@ func coreHostChecks(profile hostProfile) []hostCheck {
 		checkSSH(profile),
 		checkFirewall(profile),
 		checkPower(profile),
+		checkAutoBoot(profile),
 		checkSleep(profile),
+		checkWakeSettings(profile),
+		checkPowerButtonSleep(profile),
 	}
 	return checks
 }
@@ -231,13 +234,29 @@ func checkPower(profile hostProfile) hostCheck {
 	return hostCheck{hostStateWarn, "homelab", "Auto reboot", "autorestart=" + settings["autorestart"], "run `sudo pmset -a autorestart 1` if desired"}
 }
 
+func checkAutoBoot(profile hostProfile) hostCheck {
+	out, err := runOutput("nvram", "-p")
+	if err != nil {
+		return hostCheck{hostStateUnknown, "macos", "Auto boot", "unknown", trimOneLine(out)}
+	}
+	settings := parseNVRAM(out)
+	value := settings["auto-boot"]
+	if value == "" {
+		return hostCheck{hostStateUnknown, "macos", "Auto boot", "missing", "NVRAM auto-boot not reported"}
+	}
+	if value == "true" || value == "%01" || value == "1" {
+		return hostCheck{hostStateOK, "homelab", "Auto boot", "auto-boot=" + value, "boots when power is applied/restored"}
+	}
+	return hostCheck{hostStateWarn, "homelab", "Auto boot", "auto-boot=" + value, "enable for smart-plug recovery after shutdown"}
+}
+
 func checkSleep(profile hostProfile) hostCheck {
 	out, err := runOutput("pmset", "-g", "custom")
 	if err != nil {
 		return hostCheck{hostStateUnknown, "macos", "Sleep", "unknown", trimOneLine(out)}
 	}
 	settings := parsePMSet(out)
-	parts := []string{"sleep=" + settings["sleep"], "displaysleep=" + settings["displaysleep"], "disksleep=" + settings["disksleep"]}
+	parts := []string{"sleep=" + settingValue(settings, "sleep"), "displaysleep=" + settingValue(settings, "displaysleep"), "disksleep=" + settingValue(settings, "disksleep")}
 	if settings["sleep"] == "0" {
 		state := hostStateOK
 		detail := "system sleep disabled"
@@ -245,9 +264,38 @@ func checkSleep(profile hostProfile) hostCheck {
 			state = hostStateWarn
 			detail = "system stays awake; display/disk sleep still configured"
 		}
-		return hostCheck{state, "homelab", "Energy", strings.Join(parts, " "), detail}
+		return hostCheck{state, "homelab", "Sleep", strings.Join(parts, " "), detail}
 	}
-	return hostCheck{hostStateWarn, "homelab", "Energy", strings.Join(parts, " "), "disable system sleep for always-on hosts"}
+	return hostCheck{hostStateWarn, "homelab", "Sleep", strings.Join(parts, " "), "disable system sleep for always-on hosts"}
+}
+
+func checkWakeSettings(profile hostProfile) hostCheck {
+	out, err := runOutput("pmset", "-g", "custom")
+	if err != nil {
+		return hostCheck{hostStateUnknown, "macos", "Wake", "unknown", trimOneLine(out)}
+	}
+	settings := parsePMSet(out)
+	parts := []string{"womp=" + settingValue(settings, "womp"), "tcpkeepalive=" + settingValue(settings, "tcpkeepalive"), "powernap=" + settingValue(settings, "powernap")}
+	if settings["womp"] == "1" && settings["tcpkeepalive"] == "1" {
+		return hostCheck{hostStateOK, "homelab", "Wake network", strings.Join(parts, " "), "network wake/keepalive enabled"}
+	}
+	return hostCheck{hostStateWarn, "homelab", "Wake network", strings.Join(parts, " "), "enable womp/tcpkeepalive for LAN recovery if supported"}
+}
+
+func checkPowerButtonSleep(profile hostProfile) hostCheck {
+	out, err := runOutput("pmset", "-g", "custom")
+	if err != nil {
+		return hostCheck{hostStateUnknown, "macos", "Power button", "unknown", trimOneLine(out)}
+	}
+	settings := parsePMSet(out)
+	value := settingValue(settings, "SleepOnPowerButton")
+	if value == "0" {
+		return hostCheck{hostStateOK, "homelab", "Power button", "sleep=0", "power button sleep shortcut disabled"}
+	}
+	if value == "1" {
+		return hostCheck{hostStateWarn, "homelab", "Power button", "sleep=1", "physical power button can sleep the Mac"}
+	}
+	return hostCheck{hostStateUnknown, "macos", "Power button", "unknown", "Sleep On Power Button not reported"}
 }
 
 func checkOpenClawBinary(profile hostProfile) hostCheck {
@@ -517,12 +565,38 @@ func runOutput(name string, args ...string) (string, error) {
 func parsePMSet(out string) map[string]string {
 	settings := map[string]string{}
 	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Sleep On Power Button") {
+			fields := strings.Fields(trimmed)
+			if len(fields) > 0 {
+				settings["SleepOnPowerButton"] = fields[len(fields)-1]
+			}
+			continue
+		}
+		fields := strings.Fields(trimmed)
+		if len(fields) >= 2 {
+			settings[fields[0]] = fields[1]
+		}
+	}
+	return settings
+}
+
+func parseNVRAM(out string) map[string]string {
+	settings := map[string]string{}
+	for _, line := range strings.Split(out, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) >= 2 {
 			settings[fields[0]] = fields[1]
 		}
 	}
 	return settings
+}
+
+func settingValue(settings map[string]string, key string) string {
+	if value := settings[key]; value != "" {
+		return value
+	}
+	return "?"
 }
 
 func filterLines(out string, needles ...string) []string {
