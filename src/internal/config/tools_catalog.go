@@ -77,8 +77,8 @@ var Tools = []Tool{
 				return Installed()
 			}
 			version := tool.ParseBrewVersion(string(out))
-			formulaeOut, _ := exec.Command("brew", "list", "--formula", "-1").Output()  // non-critical
-			caskOut, _ := exec.Command("brew", "list", "--cask", "-1").Output()          // non-critical
+			formulaeOut, _ := exec.Command("brew", "list", "--formula", "-1").Output() // non-critical
+			caskOut, _ := exec.Command("brew", "list", "--cask", "-1").Output()        // non-critical
 			formulaeCount := 0
 			caskCount := 0
 			if len(strings.TrimSpace(string(formulaeOut))) > 0 {
@@ -490,6 +490,24 @@ var Tools = []Tool{
 			}
 			return CheckResult{Installed: true, Version: version, Status: status}
 		},
+	},
+	{
+		Name:         "jump-desktop-connect",
+		Description:  "Remote GUI recovery host service for headless Macs",
+		Formula:      "jump-desktop-connect",
+		Method:       InstallBrewCask,
+		Category:     CategorySystem,
+		Dependencies: []string{"homebrew"},
+		CheckFn:      checkAppWithCask("Jump Desktop Connect", "jump-desktop-connect"),
+	},
+	{
+		Name:         "jump-desktop",
+		Description:  "Jump Desktop viewer/client app",
+		Formula:      "jump-desktop",
+		Method:       InstallBrewCask,
+		Category:     CategorySystem,
+		Dependencies: []string{"homebrew"},
+		CheckFn:      checkAppWithCask("Jump Desktop", "jump-desktop"),
 	},
 	{
 		Name:         "betterdisplay",

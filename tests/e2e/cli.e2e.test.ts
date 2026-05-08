@@ -9,6 +9,14 @@ describe("j CLI — help and metadata", () => {
     expect(result.stdout + result.stderr).toContain("install");
   });
 
+  test("install list includes Jump Desktop apps", async () => {
+    const result = await jSpec("install list").exec("install").run();
+    const output = result.stdout + result.stderr;
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("jump-desktop-connect");
+    expect(output).toContain("jump-desktop");
+  });
+
   test("clean --help", async () => {
     const result = await jSpec("clean help").exec("clean --help").run();
     expect(result.exitCode).toBe(0);
