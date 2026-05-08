@@ -36,6 +36,14 @@ describe("j CLI — help and metadata", () => {
       expect(output).toContain(sub);
     }
   });
+
+  test("host --help", async () => {
+    const result = await jSpec("host help").exec("host --help").run();
+    const output = result.stdout + result.stderr;
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("host");
+    expect(output).toContain("--profile");
+  });
 });
 
 describe("j sync", () => {

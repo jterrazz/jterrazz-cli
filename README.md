@@ -29,6 +29,19 @@ The binary lives at `~/.jterrazz/bin/j`. All user data goes under `~/.jterrazz/`
 
 Full-screen TUI showing system state at a glance: setup scripts, security checks, developer identity, 100+ tracked tools with versions, top processes, network info, and disk cache sizes. Everything loads in parallel.
 
+### `j host`
+
+Read-only posture checks for personal machines, homelabs, and VPS-style hosts.
+
+```sh
+j host status                         # Default homelab profile
+j host status --profile homelab       # Always-on Mac mini / home server
+j host status --profile workstation   # Personal interactive machine
+j host status --profile vps           # Remote server profile
+```
+
+Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runtime/channel status, Jump Desktop, Agent Inbox, Developer repos, OrbStack, and Docker.
+
 ### `j install [tool...]`
 
 ```sh
