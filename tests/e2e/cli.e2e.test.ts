@@ -59,6 +59,18 @@ describe("j CLI — help and metadata", () => {
     expect(output).toContain("Power button");
     expect(output).toContain("OrbStack bg agent");
   });
+
+  test("host unlock dry-run prints FileVault SSH command", async () => {
+    const result = await jSpec("host unlock dry-run")
+      .exec("host unlock --dry-run")
+      .run();
+    const output = result.stdout + result.stderr;
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("FILEVAULT UNLOCK");
+    expect(output).toContain("jterrazz.agent@192.168.1.106");
+    expect(output).toContain("PreferredAuthentications=password");
+    expect(output).toContain("PubkeyAuthentication=no");
+  });
 });
 
 describe("j sync", () => {
