@@ -44,6 +44,18 @@ describe("j CLI — help and metadata", () => {
     expect(output).toContain("host");
     expect(output).toContain("--profile");
   });
+
+  test("host status includes homelab readiness checks", async () => {
+    const result = await jSpec("host status homelab")
+      .exec("host status --profile homelab")
+      .run();
+    const output = result.stdout + result.stderr;
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Profile: homelab");
+    expect(output).toContain("OpenClaw");
+    expect(output).toContain("Console");
+    expect(output).toContain("OrbStack bg agent");
+  });
 });
 
 describe("j sync", () => {

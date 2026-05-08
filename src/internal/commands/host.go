@@ -158,6 +158,8 @@ func openClawHostChecks(profile hostProfile) []hostCheck {
 
 func remoteGUIHostChecks(profile hostProfile) []hostCheck {
 	return []hostCheck{
+		checkConsoleOwner(profile),
+		checkScreenSharing(profile),
 		checkJumpDesktop(profile),
 		checkJumpDesktopProcess(profile),
 		checkLockAfterLogin(profile),
@@ -169,6 +171,9 @@ func devHostChecks(profile hostProfile) []hostCheck {
 	return []hostCheck{
 		checkDeveloperFolder(profile),
 		checkOrbStackInstalled(profile),
+		checkOrbStackBackgroundAgent(profile),
+		checkOrbStackObsoleteDaemon(profile),
+		checkOrbStackStatus(profile),
 		checkOrbStackProcess(profile),
 		checkDocker(profile),
 	}
@@ -300,7 +305,7 @@ func checkOpenClawLaunchAgent(profile hostProfile) hostCheck {
 	if _, err := os.Stat(path); err != nil {
 		return hostCheck{hostStateOK, "workstation", "OpenClaw agent", "absent", "no duplicate GUI LaunchAgent"}
 	}
-	return hostCheck{hostStateInfo, "workstation", "OpenClaw agent", "plist exists", "OK if disabled; avoid running both agent and daemon"}
+	return hostCheck{hostStateWarn, "workstation", "OpenClaw agent", "plist exists", "stale duplicate; OpenClaw should run via LaunchDaemon on homelab"}
 }
 
 func checkOpenClawConfig(profile hostProfile) hostCheck {
@@ -353,6 +358,27 @@ func channelCheck(statusOutput, name string) hostCheck {
 		}
 	}
 	return hostCheck{hostStateWarn, "all", name, "not found", "channel not reported by OpenClaw"}
+}
+
+func checkConsoleOwner(profile hostProfile) hostCheck {
+	out, err := runOutput("stat", "-f", "%Su", "/dev/console")
+	if err != nil {
+		return hostCheck{hostStateUnknown, "macos", "Console", "unknown", trimOneLine(out)}
+	}
+	owner := trimOneLine(out)
+	if owner == "root" {
+		return hostCheck{hostStateOK, "homelab", "Console", "loginwindow", "headless mode; no GUI user logged in"}
+	}
+	return hostCheck{hostStateInfo, "homelab", "Console", owner, "GUI session is active"}
+}
+
+func checkScreenSharing(profile hostProfile) hostCheck {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:5900", 750*time.Millisecond)
+	if err != nil {
+		return hostCheck{hostStateInfo, "homelab", "Screen Sharing", "closed", "optional recovery path; enable if remote GUI login is needed"}
+	}
+	_ = conn.Close()
+	return hostCheck{hostStateOK, "homelab", "Screen Sharing", "listening :5900", "usable after FileVault SSH unlock, not before"}
 }
 
 func checkJumpDesktop(profile hostProfile) hostCheck {
@@ -421,18 +447,54 @@ func checkDeveloperFolder(profile hostProfile) hostCheck {
 func checkOrbStackInstalled(profile hostProfile) hostCheck {
 	path := "/Applications/OrbStack.app"
 	if _, err := os.Stat(path); err == nil {
-		return hostCheck{hostStateOK, "homelab", "OrbStack", "installed", "GUI/session-bound on macOS"}
+		return hostCheck{hostStateOK, "homelab", "OrbStack", "installed", "can run headless via Background LaunchAgent"}
 	}
 	return hostCheck{hostStateInfo, "homelab", "OrbStack", "missing", "optional for local containers/Kubernetes"}
+}
+
+func checkOrbStackBackgroundAgent(profile hostProfile) hostCheck {
+	home, _ := os.UserHomeDir()
+	path := filepath.Join(home, "Library/LaunchAgents/ai.orbstack.background-start.plist")
+	if _, err := os.Stat(path); err != nil {
+		return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "missing", "install user/UID Background LaunchAgent to start without GUI login"}
+	}
+	out, err := runOutput("launchctl", "print", fmt.Sprintf("user/%d/ai.orbstack.background-start", os.Getuid()))
+	if err != nil {
+		return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "plist only", "plist exists but launchd user service is not loaded"}
+	}
+	if strings.Contains(out, "last exit code = 0") || strings.Contains(out, "state = running") {
+		return hostCheck{hostStateOK, "homelab", "OrbStack bg agent", "loaded", "user Background LaunchAgent; works before GUI login"}
+	}
+	return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "loaded", "check launchctl/logs; last run not obviously successful"}
+}
+
+func checkOrbStackObsoleteDaemon(profile hostProfile) hostCheck {
+	path := "/Library/LaunchDaemons/ai.orbstack.headless-start.plist"
+	if _, err := os.Stat(path); err != nil {
+		return hostCheck{hostStateOK, "homelab", "OrbStack old daemon", "absent", "obsolete system LaunchDaemon cleaned up"}
+	}
+	return hostCheck{hostStateWarn, "homelab", "OrbStack old daemon", "present", "remove: LaunchDaemon hits TCC; use Background LaunchAgent instead"}
+}
+
+func checkOrbStackStatus(profile hostProfile) hostCheck {
+	out, err := runOutput("/usr/local/bin/orbctl", "status")
+	if err != nil {
+		return hostCheck{hostStateWarn, "homelab", "OrbStack status", "unknown", trimOneLine(out)}
+	}
+	status := trimOneLine(out)
+	if strings.EqualFold(status, "Running") {
+		return hostCheck{hostStateOK, "homelab", "OrbStack status", "Running", "Docker/Kubernetes backend is up"}
+	}
+	return hostCheck{hostStateWarn, "homelab", "OrbStack status", status, "expected to start after FileVault unlock via background agent"}
 }
 
 func checkOrbStackProcess(profile hostProfile) hostCheck {
 	out, _ := runOutput("ps", "-axo", "user,pid,command")
 	lines := filterLinesCaseInsensitive(out, "OrbStack")
 	if len(lines) == 0 {
-		return hostCheck{hostStateInfo, "homelab", "OrbStack runtime", "not running", "expected before GUI login; start after agent GUI session"}
+		return hostCheck{hostStateInfo, "homelab", "OrbStack runtime", "not running", "background agent may not have run yet"}
 	}
-	return hostCheck{hostStateOK, "homelab", "OrbStack runtime", "running", fmt.Sprintf("%d process(es); requires GUI user session", len(lines))}
+	return hostCheck{hostStateOK, "homelab", "OrbStack runtime", "running", fmt.Sprintf("%d process(es); can run while console owner is root", len(lines))}
 }
 
 func checkDocker(profile hostProfile) hostCheck {

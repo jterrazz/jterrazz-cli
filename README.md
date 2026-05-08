@@ -40,7 +40,14 @@ j host status --profile workstation   # Personal interactive machine
 j host status --profile vps           # Remote server profile
 ```
 
-Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runtime/channel status, Jump Desktop, Agent Inbox, Developer repos, OrbStack, and Docker.
+Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runtime/channel status, console/loginwindow state, Screen Sharing, Jump Desktop, Agent Inbox, Developer repos, OrbStack headless Background LaunchAgent status, stale OrbStack LaunchDaemon cleanup, and Docker reachability.
+
+Homelab expectations captured from the Mac mini setup:
+
+- OpenClaw runs as a system LaunchDaemon with `UserName=jterrazz.agent` so it starts after FileVault SSH unlock without GUI login.
+- OrbStack runs from a user `Background` LaunchAgent (`ai.orbstack.background-start`), not a system LaunchDaemon, so Docker can be available while `/dev/console` is still owned by `root`.
+- The obsolete OrbStack system LaunchDaemon (`ai.orbstack.headless-start`) should be absent; it failed under TCC and is intentionally replaced by the Background LaunchAgent.
+- Screen Sharing is optional but useful for manual GUI recovery after FileVault unlock; it is not expected before FileVault unlock.
 
 ### `j install [tool...]`
 
