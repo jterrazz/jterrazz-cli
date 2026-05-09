@@ -389,6 +389,7 @@ func checkOpenClawChannels(profile hostProfile) []hostCheck {
 	checks := []hostCheck{
 		channelCheck(out, "Slack"),
 		channelCheck(out, "Telegram"),
+		channelCheck(out, "BlueBubbles"),
 	}
 	return checks
 }
