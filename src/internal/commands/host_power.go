@@ -9,8 +9,10 @@ import (
 
 // powerHardenSettings is the canonical homelab power policy: never sleep, restart
 // on power return, no hibernate-to-disk (faster recovery), display can sleep,
-// wake on network access, ignore the physical power button. Order is fixed so
-// pmset's diagnostics are deterministic.
+// wake on network access. Order is fixed so pmset's diagnostics are deterministic.
+//
+// Note: SleepOnPowerButton is not settable via pmset on Apple silicon — it shows
+// in `pmset -g` but is firmware-controlled. We don't try to set it.
 var powerHardenSettings = [][2]string{
 	{"autorestart", "1"},
 	{"sleep", "0"},
@@ -19,10 +21,6 @@ var powerHardenSettings = [][2]string{
 	{"powernap", "0"},
 	{"hibernatemode", "0"},
 	{"womp", "1"},
-	// SleepOnPowerButton=0 is best-effort on Apple silicon — recent macOS sometimes
-	// silently rejects it. If it sticks, a tap on the physical button no longer
-	// sleeps the Mac (which would kill the auto-logged-in agent session).
-	{"SleepOnPowerButton", "0"},
 }
 
 var hostPowerCmd = &cobra.Command{

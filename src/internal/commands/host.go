@@ -169,7 +169,6 @@ func coreHostChecks(profile hostProfile) []hostCheck {
 		checkAutoBoot(profile),
 		checkSleep(profile),
 		checkWakeSettings(profile),
-		checkPowerButtonSleep(profile),
 	}
 	return checks
 }
@@ -302,22 +301,6 @@ func checkWakeSettings(profile hostProfile) hostCheck {
 		return hostCheck{hostStateOK, "homelab", "Wake network", strings.Join(parts, " "), "network wake/keepalive enabled"}
 	}
 	return hostCheck{hostStateWarn, "homelab", "Wake network", strings.Join(parts, " "), "enable womp/tcpkeepalive for LAN recovery if supported"}
-}
-
-func checkPowerButtonSleep(profile hostProfile) hostCheck {
-	out, err := runOutput("pmset", "-g", "custom")
-	if err != nil {
-		return hostCheck{hostStateUnknown, "macos", "Power button", "unknown", trimOneLine(out)}
-	}
-	settings := parsePMSet(out)
-	value := settingValue(settings, "SleepOnPowerButton")
-	if value == "0" {
-		return hostCheck{hostStateOK, "homelab", "Power button", "sleep=0", "power button sleep shortcut disabled"}
-	}
-	if value == "1" {
-		return hostCheck{hostStateWarn, "homelab", "Power button", "sleep=1", "physical power button can sleep the Mac"}
-	}
-	return hostCheck{hostStateUnknown, "macos", "Power button", "unknown", "Sleep On Power Button not reported"}
 }
 
 func checkOpenClawBinary(profile hostProfile) hostCheck {
