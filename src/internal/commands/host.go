@@ -222,7 +222,7 @@ func devHostChecks(profile hostProfile) []hostCheck {
 	return []hostCheck{
 		checkDeveloperFolder(profile),
 		checkOrbStackInstalled(profile),
-		checkOrbStackBackgroundAgent(profile),
+		checkOrbStackLoginItem(profile),
 		checkOrbStackObsoleteDaemon(profile),
 		checkOrbStackStatus(profile),
 		checkOrbStackProcess(profile),
@@ -570,20 +570,33 @@ func checkOrbStackInstalled(profile hostProfile) hostCheck {
 	return hostCheck{hostStateInfo, "homelab", "OrbStack", "missing", "optional for local containers/Kubernetes"}
 }
 
-func checkOrbStackBackgroundAgent(profile hostProfile) hostCheck {
+// checkOrbStackLoginItem confirms OrbStack is registered as a Login Item, which is
+// how the auto-logged-in Aqua session brings up Docker. The legacy
+// ~/Library/LaunchAgents/ai.orbstack.background-start.plist + script that did the
+// same job pre-auto-login are no longer expected — flagged as a leftover if
+// either is still present.
+func checkOrbStackLoginItem(profile hostProfile) hostCheck {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, "Library/LaunchAgents/ai.orbstack.background-start.plist")
-	if _, err := os.Stat(path); err != nil {
-		return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "missing", "install user/UID Background LaunchAgent to start without GUI login"}
+	for _, leftover := range []string{
+		filepath.Join(home, "Library/LaunchAgents/ai.orbstack.background-start.plist"),
+		filepath.Join(home, ".openclaw/scripts/orbstack-background-start.sh"),
+	} {
+		if _, err := os.Stat(leftover); err == nil {
+			return hostCheck{hostStateWarn, "homelab", "OrbStack autostart", "leftover", "remove " + leftover + " — OrbStack auto-starts via the app's Login Items entry now"}
+		}
 	}
-	out, err := runOutput("launchctl", "print", fmt.Sprintf("user/%d/ai.orbstack.background-start", os.Getuid()))
+
+	// Querying Login Items needs an Automation entitlement for "System Events". If
+	// that's missing, osascript errors instead of prompting in a non-GUI shell, so
+	// fall back to an info-level note instead of a noisy warning.
+	out, err := runOutput("osascript", "-e", `tell application "System Events" to get the name of every login item`)
 	if err != nil {
-		return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "plist only", "plist exists but launchd user service is not loaded"}
+		return hostCheck{hostStateInfo, "homelab", "OrbStack autostart", "unverified", "grant System Events automation to verify, or check System Settings → General → Login Items"}
 	}
-	if strings.Contains(out, "last exit code = 0") || strings.Contains(out, "state = running") {
-		return hostCheck{hostStateOK, "homelab", "OrbStack bg agent", "loaded", "user Background LaunchAgent; works before GUI login"}
+	if strings.Contains(strings.ToLower(out), "orbstack") {
+		return hostCheck{hostStateOK, "homelab", "OrbStack autostart", "Login Item", "starts via the auto-logged-in Aqua session"}
 	}
-	return hostCheck{hostStateWarn, "homelab", "OrbStack bg agent", "loaded", "check launchctl/logs; last run not obviously successful"}
+	return hostCheck{hostStateWarn, "homelab", "OrbStack autostart", "missing", "OrbStack is not in Login Items — open OrbStack → Settings → General → Open at login"}
 }
 
 func checkOrbStackObsoleteDaemon(profile hostProfile) hostCheck {
