@@ -524,11 +524,15 @@ func checkJumpDesktopAudioDrivers(profile hostProfile) hostCheck {
 
 func checkLockAfterLogin(profile hostProfile) hostCheck {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, "Library/LaunchAgents/ai.alfred.lock-after-login.plist")
+	path := filepath.Join(home, "Library/LaunchAgents/ai.jterrazz.lock-after-login.plist")
 	if _, err := os.Stat(path); err == nil {
 		return hostCheck{hostStateOK, "homelab", "Lock after login", "installed", path}
 	}
-	return hostCheck{hostStateInfo, "homelab", "Lock after login", "missing", "optional: locks GUI shortly after manual login"}
+	legacy := filepath.Join(home, "Library/LaunchAgents/ai.alfred.lock-after-login.plist")
+	if _, err := os.Stat(legacy); err == nil {
+		return hostCheck{hostStateWarn, "homelab", "Lock after login", "legacy label", "run `j host lock-after-login install` to migrate to ai.jterrazz.*"}
+	}
+	return hostCheck{hostStateInfo, "homelab", "Lock after login", "missing", "run `j host lock-after-login install`"}
 }
 
 func checkAgentInbox(profile hostProfile) hostCheck {
