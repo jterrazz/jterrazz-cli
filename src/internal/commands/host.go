@@ -351,13 +351,7 @@ func checkOpenClawBinary(profile hostProfile) hostCheck {
 	if err != nil {
 		return hostCheck{hostStateFail, "all", "OpenClaw binary", "missing", "install OpenClaw"}
 	}
-	state := hostStateOK
-	detail := path
-	if strings.Contains(path, "/.nvm/") {
-		state = hostStateWarn
-		detail = "uses nvm Node path; system Node is more robust for daemons"
-	}
-	return hostCheck{state, "all", "OpenClaw binary", "installed", detail}
+	return hostCheck{hostStateOK, "all", "OpenClaw binary", "installed", path}
 }
 
 func checkOpenClawProcess(profile hostProfile) hostCheck {
