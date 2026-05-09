@@ -283,16 +283,12 @@ func checkSleep(profile hostProfile) hostCheck {
 	}
 	settings := parsePMSet(out)
 	parts := []string{"sleep=" + settingValue(settings, "sleep"), "displaysleep=" + settingValue(settings, "displaysleep"), "disksleep=" + settingValue(settings, "disksleep")}
-	if settings["sleep"] == "0" {
-		state := hostStateOK
-		detail := "system sleep disabled"
-		if settings["displaysleep"] != "0" || settings["disksleep"] != "0" {
-			state = hostStateWarn
-			detail = "system stays awake; display/disk sleep still configured"
-		}
-		return hostCheck{state, "homelab", "Sleep", strings.Join(parts, " "), detail}
+	// Homelab requirement: system + disk never sleep. Display sleep is desirable on
+	// a headless mini to avoid burn-in, so any displaysleep value is fine.
+	if settings["sleep"] == "0" && settings["disksleep"] == "0" {
+		return hostCheck{hostStateOK, "homelab", "Sleep", strings.Join(parts, " "), "system + disk never sleep; display sleep is fine"}
 	}
-	return hostCheck{hostStateWarn, "homelab", "Sleep", strings.Join(parts, " "), "disable system sleep for always-on hosts"}
+	return hostCheck{hostStateWarn, "homelab", "Sleep", strings.Join(parts, " "), "set sleep=0 and disksleep=0 via `j host power harden`"}
 }
 
 func checkWakeSettings(profile hostProfile) hostCheck {
