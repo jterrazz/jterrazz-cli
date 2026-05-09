@@ -99,26 +99,35 @@ func runHostAutologinEnable() {
 	failOn(run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "DisableFDEAutoLogin", "-bool", "NO"))
 	print.Success("DisableFDEAutoLogin = NO")
 
-	// `interactive` triggers sysadminctl's prompt for admin user + admin password on
-	// the controlling TTY. Without it, sysadminctl exits 0 with the misleading
-	// "Automatic login is disabled because FileVault is enabled" message — that's
-	// actually the fallback error for missing admin auth. Even running under sudo
-	// (root) does not satisfy this; macOS wants a real admin account.
-	args := []string{"-autologin", "set", "-userName", autologinTargetUser, "-password", password, "interactive"}
-	print.Dim("sysadminctl will now prompt for an admin user and admin password on this TTY.")
-	if err := run("/usr/sbin/sysadminctl", args...); err != nil {
-		failOn(fmt.Errorf("sysadminctl -autologin set failed: %w", err))
+	// macOS 26 sysadminctl -autoLogin set refuses on FileVault-enabled disks
+	// regardless of DisableFDEAutoLogin or admin auth (the "FileVault is enabled"
+	// message is non-recoverable on Tahoe). Bypass it: write /etc/kcpassword with
+	// the well-known XOR cipher that loginwindow has consumed since 10.4, and set
+	// autoLoginUser via defaults. loginwindow at boot still respects
+	// DisableFDEAutoLogin and processes /etc/kcpassword.
+	if err := os.WriteFile("/etc/kcpassword", encodeKCPassword(password), 0o600); err != nil {
+		failOn(fmt.Errorf("write /etc/kcpassword: %w", err))
 	}
+	if err := os.Chmod("/etc/kcpassword", 0o600); err != nil {
+		failOn(err)
+	}
+	// /etc/kcpassword must be owned by root:wheel; we already are root via sudo.
+	_ = os.Chown("/etc/kcpassword", 0, 0)
+	print.Success("/etc/kcpassword written (root:wheel 0600)")
 
-	// sysadminctl returns 0 even when it silently no-ops, so cross-check the side effects.
+	if err := run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser", "-string", autologinTargetUser); err != nil {
+		failOn(fmt.Errorf("defaults write autoLoginUser: %w", err))
+	}
+	print.Success("autoLoginUser = " + autologinTargetUser)
+
+	// Cross-check both side effects.
 	if _, err := os.Stat("/etc/kcpassword"); err != nil {
-		failOn(fmt.Errorf("sysadminctl exited 0 but /etc/kcpassword was not created — password likely rejected. Re-run after verifying it"))
+		failOn(fmt.Errorf("/etc/kcpassword missing after write"))
 	}
 	out, err := runQuiet("/usr/bin/defaults", "read", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser")
 	if err != nil || strings.TrimSpace(out) != autologinTargetUser {
-		failOn(fmt.Errorf("autoLoginUser was not set to %s after sysadminctl call (got %q)", autologinTargetUser, strings.TrimSpace(out)))
+		failOn(fmt.Errorf("autoLoginUser cross-check failed (got %q)", strings.TrimSpace(out)))
 	}
-	print.Success("sysadminctl -autoLogin set (autoLoginUser=" + autologinTargetUser + ", /etc/kcpassword present)")
 
 	// Belt & braces: clear the screen-locked-after-resume flag so the GUI session
 	// stays interactive after auto-login. lock-after-login handles the lock itself.
