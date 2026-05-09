@@ -45,7 +45,6 @@ type hostCheck struct {
 var hostStatusProfile string
 var hostUnlockHost string
 var hostUnlockUser string
-var hostUnlockDryRun bool
 
 var hostCmd = &cobra.Command{
 	Use:   "host",
@@ -65,51 +64,32 @@ var hostStatusCmd = &cobra.Command{
 
 var hostUnlockCmd = &cobra.Command{
 	Use:   "unlock",
-	Short: "Unlock a FileVault-protected homelab Mac over SSH",
-	Long: strings.TrimSpace(`Unlock a FileVault-protected homelab Mac from the preboot SSH server.
-
-This intentionally disables public-key authentication so macOS asks for the FileVault account password. On success, preboot SSH disconnects and macOS continues booting.`),
-	Run: func(cmd *cobra.Command, args []string) {
-		runHostUnlock()
-	},
+	Short: "Unlock a FileVault-protected homelab Mac over preboot SSH",
+	Run:   func(cmd *cobra.Command, args []string) { runHostUnlock() },
 }
 
 func init() {
 	hostCmd.PersistentFlags().StringVarP(&hostStatusProfile, "profile", "p", string(hostProfileHomelab), "host profile: homelab, workstation, vps")
 	hostUnlockCmd.Flags().StringVar(&hostUnlockHost, "host", "192.168.1.106", "target Mac host or IP")
 	hostUnlockCmd.Flags().StringVar(&hostUnlockUser, "user", "jterrazz.agent", "FileVault-enabled macOS user")
-	hostUnlockCmd.Flags().BoolVar(&hostUnlockDryRun, "dry-run", false, "print the SSH command without running it")
 	hostCmd.AddCommand(hostStatusCmd, hostUnlockCmd)
 	rootCmd.AddCommand(hostCmd)
 }
 
 func runHostUnlock() {
 	target := hostUnlockUser + "@" + hostUnlockHost
-	args := []string{
+	// Preboot SSH advertises a different host key than the running OS, and
+	// password auth is the only acceptable method (no authorized_keys before FV).
+	cmd := exec.Command("ssh",
 		"-o", "PreferredAuthentications=password",
 		"-o", "PubkeyAuthentication=no",
+		"-o", "StrictHostKeyChecking=accept-new",
 		target,
-	}
-
-	print.SectionDivider("FILEVAULT UNLOCK")
-	print.Linef("Target: %s", target)
-	print.Dim("Enter the macOS/FileVault password when SSH prompts. A disconnect after success is expected: the Mac continues booting.")
-	print.Empty()
-	print.Dim("ssh " + strings.Join(args, " "))
-	print.Empty()
-
-	if hostUnlockDryRun {
-		return
-	}
-
-	cmd := exec.Command("ssh", args...)
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	if err := cmd.Run(); err != nil {
-		print.Warning("SSH exited: " + err.Error())
-		print.Dim("If the Mac was at FileVault preboot, a disconnect can still mean the unlock succeeded. Wait 30-90s, then run `j host status --profile homelab` or try normal SSH.")
-	}
+	_ = cmd.Run() // a disconnect after the password is the success path
 }
 
 func runHostStatus(profile hostProfile) {
