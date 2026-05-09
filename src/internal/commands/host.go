@@ -188,9 +188,7 @@ func openClawHostChecks(profile hostProfile) []hostCheck {
 func remoteGUIHostChecks(profile hostProfile) []hostCheck {
 	return []hostCheck{
 		checkConsoleOwner(profile),
-		checkScreenSharing(profile),
 		checkJumpDesktopConnectApp(profile),
-		checkJumpDesktopClientApp(profile),
 		checkJumpDesktopProcess(profile),
 		checkJumpDesktopAudioDrivers(profile),
 		checkLockAfterLogin(profile),
@@ -447,29 +445,12 @@ func checkConsoleOwner(profile hostProfile) hostCheck {
 	return hostCheck{hostStateInfo, "homelab", "Console", owner, "GUI session is active"}
 }
 
-func checkScreenSharing(profile hostProfile) hostCheck {
-	conn, err := net.DialTimeout("tcp", "127.0.0.1:5900", 750*time.Millisecond)
-	if err != nil {
-		return hostCheck{hostStateInfo, "homelab", "Screen Sharing", "closed", "optional recovery path; enable if remote GUI login is needed"}
-	}
-	_ = conn.Close()
-	return hostCheck{hostStateOK, "homelab", "Screen Sharing", "listening :5900", "usable after FileVault SSH unlock, not before"}
-}
-
 func checkJumpDesktopConnectApp(profile hostProfile) hostCheck {
 	path := "/Applications/Jump Desktop Connect.app"
 	if _, err := os.Stat(path); err == nil {
 		return hostCheck{hostStateOK, "homelab", "Jump Connect app", "installed", path}
 	}
 	return hostCheck{hostStateWarn, "homelab", "Jump Connect app", "missing", "install Jump Desktop Connect for remote GUI recovery"}
-}
-
-func checkJumpDesktopClientApp(profile hostProfile) hostCheck {
-	path := "/Applications/Jump Desktop.app"
-	if _, err := os.Stat(path); err == nil {
-		return hostCheck{hostStateOK, "workstation", "Jump client app", "installed", path}
-	}
-	return hostCheck{hostStateInfo, "workstation", "Jump client app", "missing", "optional viewer app; Connect service is enough for this host"}
 }
 
 func checkJumpDesktopProcess(profile hostProfile) hostCheck {
