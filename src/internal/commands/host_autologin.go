@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -75,6 +76,19 @@ func runHostAutologinEnable() {
 	}
 
 	password := os.Getenv(autologinPasswordEnv)
+	if password == "" {
+		// Apple's sysadminctl on recent macOS silently no-ops when invoked under sudo
+		// without -password, so we MUST get a password before calling it. Prompt on
+		// /dev/tty with stty no-echo so the password never appears in scrollback or env.
+		pw, err := promptPasswordTTY(fmt.Sprintf("Agent password for %s (sets /etc/kcpassword): ", autologinTargetUser))
+		if err != nil {
+			failOn(fmt.Errorf("read password: %w (or pre-set %s in the env via `sudo --preserve-env=%s ...`)", err, autologinPasswordEnv, autologinPasswordEnv))
+		}
+		password = pw
+	}
+	if password == "" {
+		failOn(fmt.Errorf("empty password — refusing to call sysadminctl with no -password (it would silently no-op)"))
+	}
 
 	print.SectionDivider("AUTOLOGIN ENABLE")
 	print.Category("Before")
@@ -85,14 +99,20 @@ func runHostAutologinEnable() {
 	failOn(run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "DisableFDEAutoLogin", "-bool", "NO"))
 	print.Success("DisableFDEAutoLogin = NO")
 
-	args := []string{"-autologin", "set", "-userName", autologinTargetUser}
-	if password != "" {
-		args = append(args, "-password", password)
-	}
+	args := []string{"-autologin", "set", "-userName", autologinTargetUser, "-password", password}
 	if err := run("/usr/sbin/sysadminctl", args...); err != nil {
 		failOn(fmt.Errorf("sysadminctl -autologin set failed: %w", err))
 	}
-	print.Success("sysadminctl -autoLogin set")
+
+	// sysadminctl returns 0 even when it silently no-ops, so cross-check the side effects.
+	if _, err := os.Stat("/etc/kcpassword"); err != nil {
+		failOn(fmt.Errorf("sysadminctl exited 0 but /etc/kcpassword was not created — password likely rejected. Re-run after verifying it"))
+	}
+	out, err := runQuiet("/usr/bin/defaults", "read", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser")
+	if err != nil || strings.TrimSpace(out) != autologinTargetUser {
+		failOn(fmt.Errorf("autoLoginUser was not set to %s after sysadminctl call (got %q)", autologinTargetUser, strings.TrimSpace(out)))
+	}
+	print.Success("sysadminctl -autoLogin set (autoLoginUser=" + autologinTargetUser + ", /etc/kcpassword present)")
 
 	// Belt & braces: clear the screen-locked-after-resume flag so the GUI session
 	// stays interactive after auto-login. lock-after-login handles the lock itself.
@@ -154,6 +174,42 @@ func dumpAutologinState() {
 	if owner, err := runQuiet("/usr/bin/stat", "-f", "%Su", "/dev/console"); err == nil {
 		print.Linef("  /dev/console owner: %s", oneLineOrDash(owner))
 	}
+}
+
+// promptPasswordTTY reads a password from /dev/tty without echo. We deliberately
+// don't use os.Stdin: in this CLI, sudo+ssh pipelines often have stdin replaced by
+// a pipe, but /dev/tty is the controlling terminal and stays interactive.
+//
+// Implementation note: shelling out to stty avoids adding a third-party dep just
+// to set raw termios for one prompt. On panic/early exit, the deferred stty echo
+// restores the terminal state.
+func promptPasswordTTY(prompt string) (string, error) {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return "", fmt.Errorf("open /dev/tty: %w", err)
+	}
+	defer tty.Close()
+
+	stty := func(args ...string) error {
+		c := exec.Command("/bin/stty", args...)
+		c.Stdin = tty
+		return c.Run()
+	}
+	if err := stty("-echo"); err != nil {
+		return "", fmt.Errorf("stty -echo: %w", err)
+	}
+	defer stty("echo") //nolint:errcheck // best-effort restore
+
+	if _, err := fmt.Fprint(tty, prompt); err != nil {
+		return "", err
+	}
+	reader := bufio.NewReader(tty)
+	line, err := reader.ReadString('\n')
+	fmt.Fprintln(tty)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func oneLineOrDash(s string) string {
