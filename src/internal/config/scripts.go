@@ -720,7 +720,6 @@ func repoRootCandidates() []string {
 	roots = append(roots,
 		home+"/Developer/jterrazz-cli",
 		home+"/Developer/jterrazz/jterrazz-cli",
-		home+"/Developer/jterrazz-studio", // legacy location before repo rename
 	)
 	return roots
 }
