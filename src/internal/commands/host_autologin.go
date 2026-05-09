@@ -99,7 +99,13 @@ func runHostAutologinEnable() {
 	failOn(run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "DisableFDEAutoLogin", "-bool", "NO"))
 	print.Success("DisableFDEAutoLogin = NO")
 
-	args := []string{"-autologin", "set", "-userName", autologinTargetUser, "-password", password}
+	// `interactive` triggers sysadminctl's prompt for admin user + admin password on
+	// the controlling TTY. Without it, sysadminctl exits 0 with the misleading
+	// "Automatic login is disabled because FileVault is enabled" message — that's
+	// actually the fallback error for missing admin auth. Even running under sudo
+	// (root) does not satisfy this; macOS wants a real admin account.
+	args := []string{"-autologin", "set", "-userName", autologinTargetUser, "-password", password, "interactive"}
+	print.Dim("sysadminctl will now prompt for an admin user and admin password on this TTY.")
 	if err := run("/usr/sbin/sysadminctl", args...); err != nil {
 		failOn(fmt.Errorf("sysadminctl -autologin set failed: %w", err))
 	}
