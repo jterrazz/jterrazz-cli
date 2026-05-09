@@ -44,9 +44,11 @@ Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runt
 
 Homelab expectations captured from the Mac mini setup:
 
-- OpenClaw runs as a system LaunchDaemon with `UserName=jterrazz.agent` so it starts after FileVault SSH unlock without GUI login.
-- OrbStack runs from a user `Background` LaunchAgent (`ai.orbstack.background-start`), not a system LaunchDaemon, so Docker can be available while `/dev/console` is still owned by `root`.
+- The Mac is configured for FileVault-aware GUI auto-login (`j host autologin enable` + `j host lock-after-login install`), so the agent's Aqua session always comes up after a software reboot or cold boot. All long-running services run as user LaunchAgents in that session.
+- OpenClaw runs as a user `Aqua` LaunchAgent (`~/Library/LaunchAgents/ai.openclaw.gateway.plist`). The legacy `/Library/LaunchDaemons/ai.openclaw.gateway.plist` should be absent — `j host status` flags it as a leftover.
+- OrbStack runs from a user `Background` LaunchAgent (`ai.orbstack.background-start`), not a system LaunchDaemon, so Docker is available as soon as a user session exists.
 - The obsolete OrbStack system LaunchDaemon (`ai.orbstack.headless-start`) should be absent; it failed under TCC and is intentionally replaced by the Background LaunchAgent.
+- The lock-after-login LaunchAgent (`ai.jterrazz.lock-after-login`) locks the Aqua session ~20s after auto-login so the GUI stays alive for agent runtimes while the screen is physically protected.
 - Screen Sharing is optional but useful for manual GUI recovery after FileVault unlock; it is not expected before FileVault unlock.
 
 ### `j install [tool...]`

@@ -377,31 +377,36 @@ func checkOpenClawProcess(profile hostProfile) hostCheck {
 	return hostCheck{state, "all", "OpenClaw runtime", value, detail}
 }
 
+// checkOpenClawLaunchDaemon flags the legacy /Library/LaunchDaemons plist as a
+// leftover. The new model runs OpenClaw as a user LaunchAgent in the auto-logged-in
+// Aqua session — see checkOpenClawLaunchAgent.
 func checkOpenClawLaunchDaemon(profile hostProfile) hostCheck {
+	if _, err := os.Stat("/Library/LaunchDaemons/ai.openclaw.gateway.plist"); err == nil {
+		return hostCheck{hostStateWarn, "homelab", "OpenClaw daemon", "leftover", "legacy /Library/LaunchDaemons plist; remove now that OpenClaw runs as a user LaunchAgent"}
+	}
 	out, err := runOutput("launchctl", "print", "system/ai.openclaw.gateway")
-	if err != nil {
-		return hostCheck{hostStateWarn, "homelab", "OpenClaw daemon", "missing", "LaunchDaemon not loaded"}
+	if err == nil && strings.Contains(out, "state = running") {
+		return hostCheck{hostStateWarn, "homelab", "OpenClaw daemon", "running", "system LaunchDaemon still loaded; bootout and remove the plist"}
 	}
-	state := hostStateOK
-	detail := "loaded"
-	if !strings.Contains(out, "username = jterrazz.agent") {
-		state = hostStateWarn
-		detail = "loaded, but not obviously running as jterrazz.agent"
-	}
-	if !strings.Contains(out, "state = running") {
-		state = hostStateFail
-		detail = "loaded, but not running"
-	}
-	return hostCheck{state, "homelab", "OpenClaw daemon", "LaunchDaemon", detail}
+	return hostCheck{hostStateOK, "homelab", "OpenClaw daemon", "absent", "no leftover LaunchDaemon — gateway runs as a user LaunchAgent now"}
 }
 
+// checkOpenClawLaunchAgent expects the user LaunchAgent at
+// ~/Library/LaunchAgents/ai.openclaw.gateway.plist (loaded in the Aqua session).
 func checkOpenClawLaunchAgent(profile hostProfile) hostCheck {
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, "Library/LaunchAgents/ai.openclaw.gateway.plist")
 	if _, err := os.Stat(path); err != nil {
-		return hostCheck{hostStateOK, "workstation", "OpenClaw agent", "absent", "no duplicate GUI LaunchAgent"}
+		return hostCheck{hostStateFail, "homelab", "OpenClaw agent", "missing", "expected " + path}
 	}
-	return hostCheck{hostStateWarn, "workstation", "OpenClaw agent", "plist exists", "stale duplicate; OpenClaw should run via LaunchDaemon on homelab"}
+	out, err := runOutput("launchctl", "print", fmt.Sprintf("gui/%d/ai.openclaw.gateway", os.Getuid()))
+	if err != nil {
+		return hostCheck{hostStateWarn, "homelab", "OpenClaw agent", "plist only", "agent plist present but not loaded in this gui/* domain"}
+	}
+	if strings.Contains(out, "state = running") {
+		return hostCheck{hostStateOK, "homelab", "OpenClaw agent", "running", path}
+	}
+	return hostCheck{hostStateWarn, "homelab", "OpenClaw agent", "loaded", "loaded but not running — check gateway logs"}
 }
 
 func checkOpenClawConfig(profile hostProfile) hostCheck {
