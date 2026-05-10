@@ -47,16 +47,17 @@ func Installing(name string) {
 
 // roleClientStyle / roleServerStyle render the role as an inverse-video pill
 // (background colour + dark bold text + 1-char horizontal padding) so it
-// reads as a badge — the GitHub/Linear/Vercel pattern. Cool blue for client,
-// warm green for server.
+// reads as a badge — the GitHub/Linear/Vercel pattern. Background colours
+// come from the theme palette so they stay in sync with the primary accent
+// (client blue is also the project's primary colour).
 var (
 	roleClientStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#5fafd7")).
+			Background(lipgloss.Color(theme.ColorClient)).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 1)
 	roleServerStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("#5fd75f")).
+			Background(lipgloss.Color(theme.ColorServer)).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 1)
