@@ -17,7 +17,7 @@ type ItemKind int
 
 const (
 	KindHeader ItemKind = iota
-	KindSetup
+	KindConfig
 	KindSecurity
 	KindIdentity
 	KindTool
@@ -221,26 +221,26 @@ func (l *Loader) buildItems() {
 		})
 	}
 
-	// ── Setup ─────────────────────────────────────────────────────────
-	// Setup scripts
+	// ── Config ────────────────────────────────────────────────────────
+	// Config scripts (mirror j config items)
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
 			continue
 		}
 		l.addItem(Item{
-			ID:          "setup-" + script.Name,
-			Kind:        KindSetup,
-			Section:     "Setup",
-			SubSection:  "Setup",
+			ID:          "config-" + script.Name,
+			Kind:        KindConfig,
+			Section:     "Config",
+			SubSection:  "Config",
 			Name:        script.Name,
 			Description: script.Description,
 		})
 	}
 	l.addItem(Item{
-		ID:          "setup-remote",
-		Kind:        KindSetup,
-		Section:     "Setup",
-		SubSection:  "Setup",
+		ID:          "config-remote",
+		Kind:        KindConfig,
+		Section:     "Config",
+		SubSection:  "Config",
 		Name:        "remote",
 		Description: "Configure remote SSH access",
 	})
@@ -250,7 +250,7 @@ func (l *Loader) buildItems() {
 		l.addItem(Item{
 			ID:          "identity-" + check.Name,
 			Kind:        KindIdentity,
-			Section:     "Setup",
+			Section:     "Config",
 			SubSection:  "Identity",
 			Name:        check.Name,
 			Description: check.Description,
@@ -301,7 +301,7 @@ func (l *Loader) Start() {
 		l.updates <- UpdateMsg{ID: item.ID, Item: item}
 	}()
 
-	// Setup checks
+	// Config checks
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
 			continue
@@ -311,8 +311,8 @@ func (l *Loader) Start() {
 			defer wg.Done()
 			result := config.CheckScript(s)
 			item := Item{
-				ID:        "setup-" + s.Name,
-				Kind:      KindSetup,
+				ID:        "config-" + s.Name,
+				Kind:      KindConfig,
 				Name:      s.Name,
 				Loaded:    true,
 				Installed: result.Installed,
@@ -325,8 +325,8 @@ func (l *Loader) Start() {
 	go func() {
 		defer wg.Done()
 		item := Item{
-			ID:     "setup-remote",
-			Kind:   KindSetup,
+			ID:     "config-remote",
+			Kind:   KindConfig,
 			Name:   "remote",
 			Loaded: true,
 		}

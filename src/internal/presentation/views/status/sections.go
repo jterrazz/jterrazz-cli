@@ -41,7 +41,7 @@ func (m Model) renderContent() string {
 
 	// ── SETUP ────────────────────────────────────────────────────────
 	b.WriteString(sectionDivider("CONFIG", w))
-	b.WriteString(m.renderSetup(sections, w))
+	b.WriteString(m.renderConfig(sections, w))
 
 	// ── SOFTWARE ─────────────────────────────────────────────────────
 	b.WriteString(sectionDivider("SOFTWARE", w))
@@ -654,7 +654,7 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 // SETUP — boxes in masonry
 // ─────────────────────────────────────────────────────────────────────────────
 
-func (m Model) renderSetup(sections sectionMap, w int) string {
+func (m Model) renderConfig(sections sectionMap, w int) string {
 	numCols := 3
 	if w < minColWidthResponsive*2 {
 		numCols = 1
@@ -681,8 +681,8 @@ func (m Model) renderSetup(sections sectionMap, w int) string {
 		return rows
 	}
 
-	// Setup box
-	setupRows := buildCheckRows(m.getSubsectionItems(sections, "Setup", "Setup"))
+	// Config box
+	configRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Config"))
 
 	// Security box (from Environment/System — KindSecurity items)
 	var secItems []status.Item
@@ -694,11 +694,11 @@ func (m Model) renderSetup(sections sectionMap, w int) string {
 	secRows := buildCheckRows(secItems)
 
 	// Identity box
-	idRows := buildCheckRows(m.getSubsectionItems(sections, "Setup", "Identity"))
+	idRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Identity"))
 
 	var boxes []string
-	if len(setupRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Setup", setupRows, colWidth))
+	if len(configRows) > 0 {
+		boxes = append(boxes, components.SubsectionBox("Config", configRows, colWidth))
 	}
 	if len(secRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Security", secRows, colWidth))

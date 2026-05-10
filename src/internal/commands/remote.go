@@ -18,9 +18,9 @@ var remoteCmd = &cobra.Command{
 	},
 }
 
-var remoteSetupCmd = &cobra.Command{
-	Use:   "setup",
-	Short: "Interactive remote access setup",
+var remoteConfigCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Interactive remote access configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		setupview.InitRemoteState()
 		components.RunOrExit(setupview.RemoteConfig())
@@ -81,7 +81,7 @@ var remoteStatusCmd = &cobra.Command{
 }
 
 func init() {
-	remoteCmd.AddCommand(remoteSetupCmd)
+	remoteCmd.AddCommand(remoteConfigCmd)
 	remoteCmd.AddCommand(remoteUpCmd)
 	remoteCmd.AddCommand(remoteDownCmd)
 	remoteCmd.AddCommand(remoteStatusCmd)

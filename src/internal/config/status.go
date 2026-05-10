@@ -22,10 +22,10 @@ var StatusSections = []StatusSection{
 	{Title: "Workspace", SubTitle: "Git", RenderFn: nil},
 	{Title: "Workspace", SubTitle: "Disk", RenderFn: nil},
 
-	// Setup — config checks (flat)
-	{Title: "Setup", SubTitle: "Setup", RenderFn: nil},
-	{Title: "Setup", SubTitle: "Security", RenderFn: nil},
-	{Title: "Setup", SubTitle: "Identity", RenderFn: nil},
+	// Config — config checks (flat)
+	{Title: "Config", SubTitle: "Config", RenderFn: nil},
+	{Title: "Config", SubTitle: "Security", RenderFn: nil},
+	{Title: "Config", SubTitle: "Identity", RenderFn: nil},
 
 	// Tools — inventory (cards)
 	{Title: "Tools", SubTitle: "Package Managers", RenderFn: nil},
