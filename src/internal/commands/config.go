@@ -8,10 +8,10 @@ import (
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Configure this machine (interactive TUI)",
-	Long: "Open the configuration TUI. Lists every configurable item — terminal " +
-		"setup, security, editor, system tweaks, and (on a homelab-registered " +
-		"machine) homelab services. Items show their current state via CheckFn; " +
-		"toggleable items run their disable action when already configured.",
+	Long: "Open the configuration TUI. Lists every configurable item — " +
+		"terminal, security, editor, system tweaks, and (on a homelab-registered " +
+		"machine) homelab services. Items show their current install state; " +
+		"toggleable items run uninstall when already installed.",
 	Run: func(cmd *cobra.Command, args []string) {
 		configview.RunOrExit()
 	},

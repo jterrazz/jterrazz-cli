@@ -256,7 +256,7 @@ func ConfigureRemoteInteractive() error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Remote access setup (writes ~/.jterrazz/config.json)")
+	fmt.Println("Remote access config (writes ~/.jterrazz/config.json)")
 	fmt.Println()
 
 	current = normalizeRemoteSettings(current)

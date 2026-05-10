@@ -27,7 +27,15 @@ The binary lives at `~/.jterrazz/bin/j`. All user data goes under `~/.jterrazz/`
 
 ### `j status`
 
-Full-screen TUI showing system state at a glance: setup scripts, security checks, developer identity, 100+ tracked tools with versions, top processes, network info, and disk cache sizes. Everything loads in parallel.
+Full-screen TUI dashboard, organised into 5 tabs (`←/→` to cycle, `1..5` to jump directly):
+
+- **Activity** — live CPU/Memory/GPU/Network sparklines + top processes
+- **System** — network, Tailscale peers, system health (firewall, DNS, etc.)
+- **Workspace** — tracked git repos, Docker containers, project dependencies
+- **Config** — every `j config` item with its current state, grouped by category (Terminal / Security / Editor / System / Homelab / Network / Identity). Homelab subsection only shows on a homelab-registered machine.
+- **Software** — 100+ tracked tools with versions, by category
+
+Everything loads in parallel with a progress bar; the Activity tab refreshes every second.
 
 ### `j machine`
 
@@ -144,7 +152,7 @@ Interactive TUI to manage AI agent skills (install, list, remove). Requires the 
 ### `j remote`
 
 ```sh
-j remote setup    # Configure Tailscale in ~/.jterrazz/config.json
+j remote config   # Configure Tailscale in ~/.jterrazz/config.json
 j remote up       # Connect (userspace mode, SSH enabled, keep-awake)
 j remote down     # Disconnect and stop daemon
 j remote status   # Show connection state
