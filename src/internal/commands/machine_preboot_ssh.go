@@ -9,12 +9,12 @@ import (
 
 const prebootSSHGroup = "com.apple.access_ssh"
 
-var hostPrebootSSHCmd = &cobra.Command{
+var machinePrebootSSHCmd = &cobra.Command{
 	Use:   "preboot-ssh",
 	Short: "Manage Remote Login + FileVault pre-boot SSH unlock",
 }
 
-var hostPrebootSSHEnableCmd = &cobra.Command{
+var machinePrebootSSHEnableCmd = &cobra.Command{
 	Use:   "enable",
 	Short: "Enable Remote Login (sshd) and add jterrazz.agent to access_ssh",
 	Long: strings.TrimSpace(`Enable Remote Login (sshd) and restrict it to admins + jterrazz.agent.
@@ -23,21 +23,21 @@ The FileVault "remote unlock at startup" feature itself must be toggled in the G
   System Settings → Privacy & Security → FileVault → (the remote-unlock toggle)
 This command prints that reminder; macOS does not expose the toggle via CLI on
 recent versions without MDM.`),
-	Run: func(cmd *cobra.Command, args []string) { runHostPrebootSSHEnable() },
+	Run: func(cmd *cobra.Command, args []string) { runMachinePrebootSSHEnable() },
 }
 
-var hostPrebootSSHStatusCmd = &cobra.Command{
+var machinePrebootSSHStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show Remote Login state and access_ssh group membership",
-	Run:   func(cmd *cobra.Command, args []string) { runHostPrebootSSHStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachinePrebootSSHStatus() },
 }
 
 func init() {
-	hostPrebootSSHCmd.AddCommand(hostPrebootSSHEnableCmd, hostPrebootSSHStatusCmd)
-	hostCmd.AddCommand(hostPrebootSSHCmd)
+	machinePrebootSSHCmd.AddCommand(machinePrebootSSHEnableCmd, machinePrebootSSHStatusCmd)
+	machineCmd.AddCommand(machinePrebootSSHCmd)
 }
 
-func runHostPrebootSSHEnable() {
+func runMachinePrebootSSHEnable() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
@@ -76,7 +76,7 @@ func runHostPrebootSSHEnable() {
 	print.Dim("  (label varies by macOS version; only available on supported hardware)")
 }
 
-func runHostPrebootSSHStatus() {
+func runMachinePrebootSSHStatus() {
 	failOn(requireDarwin())
 	print.SectionDivider("PREBOOT-SSH STATUS")
 	dumpPrebootSSHState()

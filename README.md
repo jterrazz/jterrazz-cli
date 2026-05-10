@@ -29,23 +29,23 @@ The binary lives at `~/.jterrazz/bin/j`. All user data goes under `~/.jterrazz/`
 
 Full-screen TUI showing system state at a glance: setup scripts, security checks, developer identity, 100+ tracked tools with versions, top processes, network info, and disk cache sizes. Everything loads in parallel.
 
-### `j host`
+### `j machine`
 
 Read-only posture checks for personal machines, homelabs, and VPS-style hosts.
 
 ```sh
-j host status                         # Default homelab profile
-j host status --profile homelab       # Always-on Mac mini / home server
-j host status --profile workstation   # Personal interactive machine
-j host status --profile vps           # Remote server profile
+j machine status                         # Default homelab profile
+j machine status --profile homelab       # Always-on Mac mini / home server
+j machine status --profile workstation   # Personal interactive machine
+j machine status --profile vps           # Remote server profile
 ```
 
 Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runtime/channel status, console/loginwindow state, Screen Sharing, Jump Desktop, Agent Inbox, Developer repos, OrbStack headless Background LaunchAgent status, stale OrbStack LaunchDaemon cleanup, and Docker reachability.
 
 Homelab expectations captured from the Mac mini setup:
 
-- The Mac is configured for FileVault-aware GUI auto-login (`j host autologin enable` + `j host lock-after-login install`), so the agent's Aqua session always comes up after a software reboot or cold boot. All long-running services run inside that session.
-- OpenClaw runs as a user `Aqua` LaunchAgent (`~/Library/LaunchAgents/ai.openclaw.gateway.plist`). The legacy `/Library/LaunchDaemons/ai.openclaw.gateway.plist` should be absent — `j host status` flags it as a leftover.
+- The Mac is configured for FileVault-aware GUI auto-login (`j machine autologin enable` + `j machine lock-after-login install`), so the agent's Aqua session always comes up after a software reboot or cold boot. All long-running services run inside that session.
+- OpenClaw runs as a user `Aqua` LaunchAgent (`~/Library/LaunchAgents/ai.openclaw.gateway.plist`). The legacy `/Library/LaunchDaemons/ai.openclaw.gateway.plist` should be absent — `j machine status` flags it as a leftover.
 - OrbStack auto-starts via its app's Login Items entry (Settings → General → Open at login). The earlier `ai.orbstack.background-start` LaunchAgent + helper script are no longer used and should be absent.
 - The obsolete OrbStack system LaunchDaemon (`ai.orbstack.headless-start`) should also be absent; it failed under TCC and is intentionally replaced by the Login Items entry.
 - The lock-after-login LaunchAgent (`ai.jterrazz.lock-after-login`) locks the Aqua session ~20s after auto-login so the GUI stays alive for agent runtimes while the screen is physically protected.

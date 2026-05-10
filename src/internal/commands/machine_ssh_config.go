@@ -24,7 +24,7 @@ var (
 	sshConfigPath     string
 )
 
-var hostSSHConfigCmd = &cobra.Command{
+var machineSSHConfigCmd = &cobra.Command{
 	Use:   "ssh-config",
 	Short: "Manage the ~/.ssh/config block for the homelab Mac",
 	Long: strings.TrimSpace(`Idempotently install or update an SSH config block in ~/.ssh/config so the
@@ -35,31 +35,31 @@ the command refuses to overwrite it and exits non-zero — the SSH config is too
 load-bearing to silently replace.`),
 }
 
-var hostSSHConfigInstallCmd = &cobra.Command{
+var machineSSHConfigInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Insert or update the managed SSH config block",
-	Run:   func(cmd *cobra.Command, args []string) { runHostSSHConfigInstall() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineSSHConfigInstall() },
 }
 
-var hostSSHConfigStatusCmd = &cobra.Command{
+var machineSSHConfigStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show whether the managed block is present and what `ssh -G` resolves",
-	Run:   func(cmd *cobra.Command, args []string) { runHostSSHConfigStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineSSHConfigStatus() },
 }
 
 func init() {
-	for _, c := range []*cobra.Command{hostSSHConfigInstallCmd, hostSSHConfigStatusCmd} {
+	for _, c := range []*cobra.Command{machineSSHConfigInstallCmd, machineSSHConfigStatusCmd} {
 		c.Flags().StringVar(&sshConfigAlias, "alias", "mac-mini", "Host alias to define")
 		c.Flags().StringVar(&sshConfigHostname, "hostname", "192.168.1.106", "HostName value")
 		c.Flags().StringVar(&sshConfigUser, "user", "jterrazz.agent", "User value")
 		c.Flags().StringVar(&sshConfigKey, "identity", "~/.ssh/id_ed25519", "IdentityFile value")
 		c.Flags().StringVar(&sshConfigPath, "path", defaultSSHConfigPath(), "ssh_config file to manage")
 	}
-	hostSSHConfigCmd.AddCommand(hostSSHConfigInstallCmd, hostSSHConfigStatusCmd)
-	hostCmd.AddCommand(hostSSHConfigCmd)
+	machineSSHConfigCmd.AddCommand(machineSSHConfigInstallCmd, machineSSHConfigStatusCmd)
+	machineCmd.AddCommand(machineSSHConfigCmd)
 }
 
-func runHostSSHConfigInstall() {
+func runMachineSSHConfigInstall() {
 	path := sshConfigPath
 	if path == "" {
 		path = defaultSSHConfigPath()
@@ -96,10 +96,10 @@ func runHostSSHConfigInstall() {
 
 	print.SectionDivider("SSH-CONFIG INSTALL")
 	print.Success("Updated " + path)
-	print.Dim("Verify: `ssh -G " + sshConfigAlias + "` or `j host probe --host " + sshConfigAlias + "`")
+	print.Dim("Verify: `ssh -G " + sshConfigAlias + "` or `j machine probe --host " + sshConfigAlias + "`")
 }
 
-func runHostSSHConfigStatus() {
+func runMachineSSHConfigStatus() {
 	path := sshConfigPath
 	if path == "" {
 		path = defaultSSHConfigPath()

@@ -12,31 +12,31 @@ import (
 )
 
 var (
-	hostProbeTarget      string
-	hostProbeGatewayPort int
+	machineProbeTarget      string
+	machineProbeGatewayPort int
 )
 
 const defaultGatewayPort = 18789
 
-var hostProbeCmd = &cobra.Command{
+var machineProbeCmd = &cobra.Command{
 	Use:   "probe",
 	Short: "Probe a remote homelab Mac (ping, ssh, gateway port, console owner)",
 	Long: strings.TrimSpace(`Quick health probe of a remote homelab Mac.
 
 Checks: ICMP reachability, SSH (BatchMode), the OpenClaw gateway port, and the
-console owner reported by stat -f %Su /dev/console. Useful right after `+"`j host restart`"+`
+console owner reported by stat -f %Su /dev/console. Useful right after `+"`j machine restart`"+`
 to confirm auto-login succeeded and lock-after-login fired.`),
-	Run: func(cmd *cobra.Command, args []string) { runHostProbe() },
+	Run: func(cmd *cobra.Command, args []string) { runMachineProbe() },
 }
 
 func init() {
-	hostProbeCmd.Flags().StringVar(&hostProbeTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
-	hostProbeCmd.Flags().IntVar(&hostProbeGatewayPort, "gateway-port", defaultGatewayPortFromEnv(), "OpenClaw gateway TCP port to probe")
-	hostCmd.AddCommand(hostProbeCmd)
+	machineProbeCmd.Flags().StringVar(&machineProbeTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
+	machineProbeCmd.Flags().IntVar(&machineProbeGatewayPort, "gateway-port", defaultGatewayPortFromEnv(), "OpenClaw gateway TCP port to probe")
+	machineCmd.AddCommand(machineProbeCmd)
 }
 
-func runHostProbe() {
-	target := hostProbeTarget
+func runMachineProbe() {
+	target := machineProbeTarget
 	if target == "" {
 		target = "mac-mini"
 	}
@@ -46,7 +46,7 @@ func runHostProbe() {
 		ip = target
 	}
 
-	print.SectionDivider("HOST PROBE")
+	print.SectionDivider("MACHINE PROBE")
 	print.Linef("Target: %s → %s", target, ip)
 
 	if exec.Command("ping", "-c", "1", "-W", "1000", ip).Run() == nil {
@@ -63,13 +63,13 @@ func runHostProbe() {
 	if sshErr == nil {
 		print.Row(true, "ssh", "BatchMode auth ok")
 	} else {
-		print.Row(false, "ssh", "auth failed (or pre-boot — try `j host unlock`)")
+		print.Row(false, "ssh", "auth failed (or pre-boot — try `j machine unlock`)")
 	}
 
-	if dialPort(ip, hostProbeGatewayPort, 2*time.Second) {
-		print.Row(true, "gateway", "port "+strconv.Itoa(hostProbeGatewayPort)+" open")
+	if dialPort(ip, machineProbeGatewayPort, 2*time.Second) {
+		print.Row(true, "gateway", "port "+strconv.Itoa(machineProbeGatewayPort)+" open")
 	} else {
-		print.Row(false, "gateway", "port "+strconv.Itoa(hostProbeGatewayPort)+" closed")
+		print.Row(false, "gateway", "port "+strconv.Itoa(machineProbeGatewayPort)+" closed")
 	}
 
 	if sshErr == nil {

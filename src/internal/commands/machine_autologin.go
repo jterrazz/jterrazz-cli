@@ -15,7 +15,7 @@ const autologinTargetUser = "jterrazz.agent"
 
 var autologinPasswordEnv string
 
-var hostAutologinCmd = &cobra.Command{
+var machineAutologinCmd = &cobra.Command{
 	Use:   "autologin",
 	Short: "Manage GUI auto-login for the agent user",
 	Long: strings.TrimSpace(`Manage GUI auto-login for jterrazz.agent on a FileVault-encrypted Mac.
@@ -25,7 +25,7 @@ agent runtime can drive the Aqua session without anyone at the keyboard. Per-use
 "lock after login" must be installed separately to keep the screen physically protected.`),
 }
 
-var hostAutologinEnableCmd = &cobra.Command{
+var machineAutologinEnableCmd = &cobra.Command{
 	Use:   "enable",
 	Short: "Enable auto-login for jterrazz.agent (FileVault-aware)",
 	Long: strings.TrimSpace(`Enable auto-login for jterrazz.agent.
@@ -34,34 +34,34 @@ If the env var named by --password-env (default AGENT_PASSWORD) is set, its valu
 passed to sysadminctl directly. Otherwise sysadminctl will prompt interactively for
 both the admin and the agent password. The password is never echoed and never written
 to disk except via macOS's own /etc/kcpassword (which sysadminctl manages).`),
-	Run: func(cmd *cobra.Command, args []string) { runHostAutologinEnable() },
+	Run: func(cmd *cobra.Command, args []string) { runMachineAutologinEnable() },
 }
 
-var hostAutologinDisableCmd = &cobra.Command{
+var machineAutologinDisableCmd = &cobra.Command{
 	Use:   "disable",
 	Short: "Disable auto-login and clear /etc/kcpassword",
-	Run:   func(cmd *cobra.Command, args []string) { runHostAutologinDisable() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineAutologinDisable() },
 }
 
-var hostAutologinStatusCmd = &cobra.Command{
+var machineAutologinStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show auto-login + FileVault auto-login override state",
-	Run:   func(cmd *cobra.Command, args []string) { runHostAutologinStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineAutologinStatus() },
 }
 
 func init() {
-	hostAutologinEnableCmd.Flags().StringVar(&autologinPasswordEnv, "password-env", "AGENT_PASSWORD", "env var that holds the agent password (read at run time, never logged)")
-	hostAutologinCmd.AddCommand(hostAutologinEnableCmd, hostAutologinDisableCmd, hostAutologinStatusCmd)
-	hostCmd.AddCommand(hostAutologinCmd)
+	machineAutologinEnableCmd.Flags().StringVar(&autologinPasswordEnv, "password-env", "AGENT_PASSWORD", "env var that holds the agent password (read at run time, never logged)")
+	machineAutologinCmd.AddCommand(machineAutologinEnableCmd, machineAutologinDisableCmd, machineAutologinStatusCmd)
+	machineCmd.AddCommand(machineAutologinCmd)
 }
 
-func runHostAutologinStatus() {
+func runMachineAutologinStatus() {
 	failOn(requireDarwin())
 	print.SectionDivider("AUTOLOGIN STATUS")
 	dumpAutologinState()
 }
 
-func runHostAutologinEnable() {
+func runMachineAutologinEnable() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
@@ -134,10 +134,10 @@ func runHostAutologinEnable() {
 	print.Category("After")
 	dumpAutologinState()
 	print.Empty()
-	print.Dim("Verify end-to-end: `sudo fdesetup authrestart -delayminutes 0` (or `j host restart` from the MacBook).")
+	print.Dim("Verify end-to-end: `sudo fdesetup authrestart -delayminutes 0` (or `j machine restart` from the MacBook).")
 }
 
-func runHostAutologinDisable() {
+func runMachineAutologinDisable() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 

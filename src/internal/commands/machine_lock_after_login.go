@@ -20,40 +20,40 @@ const (
 	lockAfterLoginLogDir  = "/Users/jterrazz.agent/.openclaw/logs"
 )
 
-var hostLockAfterLoginCmd = &cobra.Command{
+var machineLockAfterLoginCmd = &cobra.Command{
 	Use:     "lock-after-login",
 	Aliases: []string{"lockafterlogin"},
 	Short:   "Manage the LaunchAgent that locks the screen ~20s after auto-login",
 }
 
-var hostLockAfterLoginInstallCmd = &cobra.Command{
+var machineLockAfterLoginInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install the lock-after-login LaunchAgent for jterrazz.agent",
 	Long: strings.TrimSpace(`Install the per-user LaunchAgent that runs lock-after-login.sh on auto-login.
 
 This wraps the existing ~/.openclaw/scripts/lock-after-login.sh — the script is reused, not duplicated.
 Idempotent: rewrites the plist with current paths and re-bootstraps the agent if a GUI session is active.`),
-	Run: func(cmd *cobra.Command, args []string) { runHostLockAfterLoginInstall() },
+	Run: func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginInstall() },
 }
 
-var hostLockAfterLoginUninstallCmd = &cobra.Command{
+var machineLockAfterLoginUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Bootout and remove the lock-after-login LaunchAgent",
-	Run:   func(cmd *cobra.Command, args []string) { runHostLockAfterLoginUninstall() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginUninstall() },
 }
 
-var hostLockAfterLoginStatusCmd = &cobra.Command{
+var machineLockAfterLoginStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show whether the lock-after-login LaunchAgent is installed and loaded",
-	Run:   func(cmd *cobra.Command, args []string) { runHostLockAfterLoginStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginStatus() },
 }
 
 func init() {
-	hostLockAfterLoginCmd.AddCommand(hostLockAfterLoginInstallCmd, hostLockAfterLoginUninstallCmd, hostLockAfterLoginStatusCmd)
-	hostCmd.AddCommand(hostLockAfterLoginCmd)
+	machineLockAfterLoginCmd.AddCommand(machineLockAfterLoginInstallCmd, machineLockAfterLoginUninstallCmd, machineLockAfterLoginStatusCmd)
+	machineCmd.AddCommand(machineLockAfterLoginCmd)
 }
 
-func runHostLockAfterLoginInstall() {
+func runMachineLockAfterLoginInstall() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
@@ -109,7 +109,7 @@ func runHostLockAfterLoginInstall() {
 	dumpLockAfterLoginState()
 }
 
-func runHostLockAfterLoginUninstall() {
+func runMachineLockAfterLoginUninstall() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
@@ -126,7 +126,7 @@ func runHostLockAfterLoginUninstall() {
 	dumpLockAfterLoginState()
 }
 
-func runHostLockAfterLoginStatus() {
+func runMachineLockAfterLoginStatus() {
 	failOn(requireDarwin())
 	print.SectionDivider("LOCK-AFTER-LOGIN STATUS")
 	dumpLockAfterLoginState()

@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	hostRestartTarget    string
-	hostRestartConfirmed bool
+	machineRestartTarget    string
+	machineRestartConfirmed bool
 )
 
-var hostRestartCmd = &cobra.Command{
+var machineRestartCmd = &cobra.Command{
 	Use:   "restart",
 	Short: "Software-reboot a remote homelab Mac (FileVault-aware authrestart)",
 	Long: strings.TrimSpace(`Issue a FileVault-aware software reboot of the homelab Mac via SSH.
@@ -27,28 +27,28 @@ FileVault unlock token in memory; the next boot skips FV and auto-login lands th
 agent session ~60s later.
 
 Requires --yes (or interactive confirmation) — this is a destructive remote action.`),
-	Run: func(cmd *cobra.Command, args []string) { runHostRestart() },
+	Run: func(cmd *cobra.Command, args []string) { runMachineRestart() },
 }
 
 func init() {
-	hostRestartCmd.Flags().StringVar(&hostRestartTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
-	hostRestartCmd.Flags().BoolVarP(&hostRestartConfirmed, "yes", "y", false, "skip the interactive confirmation prompt")
-	hostCmd.AddCommand(hostRestartCmd)
+	machineRestartCmd.Flags().StringVar(&machineRestartTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
+	machineRestartCmd.Flags().BoolVarP(&machineRestartConfirmed, "yes", "y", false, "skip the interactive confirmation prompt")
+	machineCmd.AddCommand(machineRestartCmd)
 }
 
-func runHostRestart() {
-	target := hostRestartTarget
+func runMachineRestart() {
+	target := machineRestartTarget
 	if target == "" {
 		target = "mac-mini"
 	}
 
-	print.SectionDivider("HOST RESTART")
+	print.SectionDivider("MACHINE RESTART")
 	print.Linef("Target: %s", target)
 	print.Dim("Will issue: sudo fdesetup authrestart -delayminutes 0")
 	print.Empty()
 
-	if !hostRestartConfirmed {
-		failOn(fmt.Errorf("refusing to reboot without --yes; re-run with `j host restart --yes`"))
+	if !machineRestartConfirmed {
+		failOn(fmt.Errorf("refusing to reboot without --yes; re-run with `j machine restart --yes`"))
 	}
 
 	cmd := exec.Command("ssh", target, "sudo fdesetup authrestart -delayminutes 0")
@@ -70,7 +70,7 @@ func runHostRestart() {
 		print.Success("SSH ready after restart")
 		return
 	}
-	failOn(fmt.Errorf("SSH did not come back within budget — check `j host probe`"))
+	failOn(fmt.Errorf("SSH did not come back within budget — check `j machine probe`"))
 }
 
 func defaultRemoteHost() string {
@@ -121,7 +121,7 @@ func waitForSSH(target string, attempts int) bool {
 	return false
 }
 
-// dialPort is a small helper used by host_probe.
+// dialPort is a small helper used by machine_probe.
 func dialPort(host string, port int, timeout time.Duration) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), timeout)
 	if err != nil {

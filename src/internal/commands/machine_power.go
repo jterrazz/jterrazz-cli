@@ -23,12 +23,12 @@ var powerHardenSettings = [][2]string{
 	{"womp", "1"},
 }
 
-var hostPowerCmd = &cobra.Command{
+var machinePowerCmd = &cobra.Command{
 	Use:   "power",
 	Short: "Manage homelab power policy (sleep, autorestart, wake)",
 }
 
-var hostPowerHardenCmd = &cobra.Command{
+var machinePowerHardenCmd = &cobra.Command{
 	Use:   "harden",
 	Short: "Apply always-on homelab power policy via pmset -a",
 	Long: strings.TrimSpace(`Apply the always-on homelab power policy.
@@ -36,21 +36,21 @@ var hostPowerHardenCmd = &cobra.Command{
 Sets: autorestart=1, sleep=0, displaysleep=5, disksleep=0, powernap=0,
 hibernatemode=0, womp=1. Idempotent — re-running re-applies and prints the
 current state.`),
-	Run: func(cmd *cobra.Command, args []string) { runHostPowerHarden() },
+	Run: func(cmd *cobra.Command, args []string) { runMachinePowerHarden() },
 }
 
-var hostPowerStatusCmd = &cobra.Command{
+var machinePowerStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show pmset -g custom output",
-	Run:   func(cmd *cobra.Command, args []string) { runHostPowerStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachinePowerStatus() },
 }
 
 func init() {
-	hostPowerCmd.AddCommand(hostPowerHardenCmd, hostPowerStatusCmd)
-	hostCmd.AddCommand(hostPowerCmd)
+	machinePowerCmd.AddCommand(machinePowerHardenCmd, machinePowerStatusCmd)
+	machineCmd.AddCommand(machinePowerCmd)
 }
 
-func runHostPowerHarden() {
+func runMachinePowerHarden() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
@@ -74,7 +74,7 @@ func runHostPowerHarden() {
 	dumpPmset()
 }
 
-func runHostPowerStatus() {
+func runMachinePowerStatus() {
 	failOn(requireDarwin())
 	print.SectionDivider("POWER STATUS")
 	dumpPmset()
