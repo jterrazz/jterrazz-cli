@@ -3,6 +3,7 @@ package commands
 import (
 	"strings"
 
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	"github.com/spf13/cobra"
 )
@@ -23,23 +24,33 @@ The FileVault "remote unlock at startup" feature itself must be toggled in the G
   System Settings → Privacy & Security → FileVault → (the remote-unlock toggle)
 This command prints that reminder; macOS does not expose the toggle via CLI on
 recent versions without MDM.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachineSshdEnable() },
+	Run: func(cmd *cobra.Command, args []string) { failOn(enableSshd()) },
+}
+
+var machineSshdDisableCmd = &cobra.Command{
+	Use:   "disable",
+	Short: "Disable Remote Login (sshd) and remove jterrazz.agent from access_ssh",
+	Run:   func(cmd *cobra.Command, args []string) { failOn(disableSshd()) },
 }
 
 var machineSshdStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show Remote Login state and access_ssh group membership",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineSshdStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { failOn(statusSshd()) },
 }
 
 func init() {
-	machineSshdCmd.AddCommand(machineSshdEnableCmd, machineSshdStatusCmd)
+	machineSshdCmd.AddCommand(machineSshdEnableCmd, machineSshdDisableCmd, machineSshdStatusCmd)
 	machineConfigCmd.AddCommand(machineSshdCmd)
 }
 
-func runMachineSshdEnable() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
+func enableSshd() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
 
 	print.SectionDivider("SSHD ENABLE")
 	print.Category("Before")
@@ -74,12 +85,62 @@ func runMachineSshdEnable() {
 	print.Warning("Manual step still required:")
 	print.Dim("  System Settings → Privacy & Security → FileVault → enable remote-unlock toggle")
 	print.Dim("  (label varies by macOS version; only available on supported hardware)")
+	return nil
 }
 
-func runMachineSshdStatus() {
-	failOn(requireDarwin())
+func disableSshd() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
+
+	print.SectionDivider("SSHD DISABLE")
+	print.Category("Before")
+	dumpSshdState()
+	print.Empty()
+
+	print.Category("Applying")
+	if out, err := runQuiet("/usr/sbin/systemsetup", "-setremotelogin", "off"); err != nil {
+		print.Warning("systemsetup -setremotelogin off: " + oneLineOrDash(out))
+	} else {
+		print.Success("Remote Login disabled")
+	}
+	if sshGroupHasMember(sshAccessGroup, autologinTargetUser) {
+		if _, err := runQuiet("/usr/sbin/dseditgroup", "-o", "edit", "-d", autologinTargetUser, "-t", "user", sshAccessGroup); err == nil {
+			print.Success(autologinTargetUser + " removed from " + sshAccessGroup)
+		} else {
+			print.Warning("dseditgroup edit -d failed: " + err.Error())
+		}
+	}
+
+	print.Empty()
+	print.Category("After")
+	dumpSshdState()
+	return nil
+}
+
+func statusSshd() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
 	print.SectionDivider("SSHD STATUS")
 	dumpSshdState()
+	return nil
+}
+
+// checkSshdEnabled reports whether Remote Login is on AND the agent user is in
+// the access_ssh group. Used as a CheckFn for the j config TUI.
+func checkSshdEnabled() config.CheckResult {
+	out, err := runQuiet("/usr/sbin/systemsetup", "-getremotelogin")
+	if err != nil || !strings.Contains(strings.ToLower(out), "on") {
+		return config.CheckResult{}
+	}
+	if !sshGroupHasMember(sshAccessGroup, autologinTargetUser) {
+		return config.CheckResult{}
+	}
+	return config.InstalledWithDetail("Remote Login on, " + autologinTargetUser + " in access_ssh")
 }
 
 func dumpSshdState() {

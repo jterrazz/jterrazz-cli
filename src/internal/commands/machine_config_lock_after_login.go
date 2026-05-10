@@ -8,16 +8,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	"github.com/spf13/cobra"
 )
 
 const (
-	lockAfterLoginUser    = "jterrazz.agent"
-	lockAfterLoginLabel   = "ai.jterrazz.lock-after-login"
-	lockAfterLoginScript  = "/Users/jterrazz.agent/.openclaw/scripts/lock-after-login.sh"
-	lockAfterLoginPlist   = "/Users/jterrazz.agent/Library/LaunchAgents/ai.jterrazz.lock-after-login.plist"
-	lockAfterLoginLogDir  = "/Users/jterrazz.agent/.openclaw/logs"
+	lockAfterLoginUser   = "jterrazz.agent"
+	lockAfterLoginLabel  = "ai.jterrazz.lock-after-login"
+	lockAfterLoginScript = "/Users/jterrazz.agent/.openclaw/scripts/lock-after-login.sh"
+	lockAfterLoginPlist  = "/Users/jterrazz.agent/Library/LaunchAgents/ai.jterrazz.lock-after-login.plist"
+	lockAfterLoginLogDir = "/Users/jterrazz.agent/.openclaw/logs"
 )
 
 var machineLockAfterLoginCmd = &cobra.Command{
@@ -26,59 +27,65 @@ var machineLockAfterLoginCmd = &cobra.Command{
 	Short:   "Manage the LaunchAgent that locks the screen ~20s after auto-login",
 }
 
-var machineLockAfterLoginInstallCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install the lock-after-login LaunchAgent for jterrazz.agent",
+var machineLockAfterLoginEnableCmd = &cobra.Command{
+	Use:     "enable",
+	Aliases: []string{"install"},
+	Short:   "Install the lock-after-login LaunchAgent for jterrazz.agent",
 	Long: strings.TrimSpace(`Install the per-user LaunchAgent that runs lock-after-login.sh on auto-login.
 
 This wraps the existing ~/.openclaw/scripts/lock-after-login.sh — the script is reused, not duplicated.
 Idempotent: rewrites the plist with current paths and re-bootstraps the agent if a GUI session is active.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginInstall() },
+	Run: func(cmd *cobra.Command, args []string) { failOn(enableLockAfterLogin()) },
 }
 
-var machineLockAfterLoginUninstallCmd = &cobra.Command{
-	Use:   "uninstall",
-	Short: "Bootout and remove the lock-after-login LaunchAgent",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginUninstall() },
+var machineLockAfterLoginDisableCmd = &cobra.Command{
+	Use:     "disable",
+	Aliases: []string{"uninstall"},
+	Short:   "Bootout and remove the lock-after-login LaunchAgent",
+	Run:     func(cmd *cobra.Command, args []string) { failOn(disableLockAfterLogin()) },
 }
 
 var machineLockAfterLoginStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show whether the lock-after-login LaunchAgent is installed and loaded",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineLockAfterLoginStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { failOn(statusLockAfterLogin()) },
 }
 
 func init() {
-	machineLockAfterLoginCmd.AddCommand(machineLockAfterLoginInstallCmd, machineLockAfterLoginUninstallCmd, machineLockAfterLoginStatusCmd)
+	machineLockAfterLoginCmd.AddCommand(machineLockAfterLoginEnableCmd, machineLockAfterLoginDisableCmd, machineLockAfterLoginStatusCmd)
 	machineConfigCmd.AddCommand(machineLockAfterLoginCmd)
 }
 
-func runMachineLockAfterLoginInstall() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
-
-	if _, err := os.Stat(lockAfterLoginScript); err != nil {
-		failOn(fmt.Errorf("missing %s — expected the openclaw lock-after-login script", lockAfterLoginScript))
+func enableLockAfterLogin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
 	}
 
-	print.SectionDivider("LOCK-AFTER-LOGIN INSTALL")
+	if _, err := os.Stat(lockAfterLoginScript); err != nil {
+		return fmt.Errorf("missing %s — expected the openclaw lock-after-login script", lockAfterLoginScript)
+	}
+
+	print.SectionDivider("LOCK-AFTER-LOGIN ENABLE")
 	print.Category("Before")
 	dumpLockAfterLoginState()
 	print.Empty()
 
 	if err := os.Chmod(lockAfterLoginScript, 0o755); err != nil {
-		failOn(err)
+		return err
 	}
 	if err := os.MkdirAll(lockAfterLoginLogDir, 0o755); err != nil {
-		failOn(err)
+		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(lockAfterLoginPlist), 0o755); err != nil {
-		failOn(err)
+		return err
 	}
 
 	plist := buildLockAfterLoginPlist()
 	if err := os.WriteFile(lockAfterLoginPlist, []byte(plist), 0o644); err != nil {
-		failOn(err)
+		return err
 	}
 
 	uid, gid := lookupTargetUserIDs(lockAfterLoginUser)
@@ -107,29 +114,47 @@ func runMachineLockAfterLoginInstall() {
 	print.Empty()
 	print.Category("After")
 	dumpLockAfterLoginState()
+	return nil
 }
 
-func runMachineLockAfterLoginUninstall() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
+func disableLockAfterLogin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
 
 	uid, _ := lookupTargetUserIDs(lockAfterLoginUser)
 	if uid >= 0 {
 		_ = exec.Command("/bin/launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, lockAfterLoginLabel)).Run()
 	}
 	if err := os.Remove(lockAfterLoginPlist); err != nil && !os.IsNotExist(err) {
-		failOn(err)
+		return err
 	}
-	print.SectionDivider("LOCK-AFTER-LOGIN UNINSTALL")
+	print.SectionDivider("LOCK-AFTER-LOGIN DISABLE")
 	print.Success("Removed " + lockAfterLoginPlist)
 	print.Category("After")
 	dumpLockAfterLoginState()
+	return nil
 }
 
-func runMachineLockAfterLoginStatus() {
-	failOn(requireDarwin())
+func statusLockAfterLogin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
 	print.SectionDivider("LOCK-AFTER-LOGIN STATUS")
 	dumpLockAfterLoginState()
+	return nil
+}
+
+// checkLockAfterLoginInstalled reports whether the LaunchAgent plist exists.
+// Used as a CheckFn for the j config TUI.
+func checkLockAfterLoginInstalled() config.CheckResult {
+	if _, err := os.Stat(lockAfterLoginPlist); err != nil {
+		return config.CheckResult{}
+	}
+	return config.InstalledWithDetail(lockAfterLoginPlist)
 }
 
 func dumpLockAfterLoginState() {

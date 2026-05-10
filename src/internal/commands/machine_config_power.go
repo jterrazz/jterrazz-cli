@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	"github.com/spf13/cobra"
 )
@@ -28,33 +30,43 @@ var machinePowerCmd = &cobra.Command{
 	Short: "Manage homelab power policy (sleep, autorestart, wake)",
 }
 
-var machinePowerHardenCmd = &cobra.Command{
-	Use:   "harden",
+var machinePowerEnableCmd = &cobra.Command{
+	Use:   "enable",
 	Short: "Apply always-on homelab power policy via pmset -a",
 	Long: strings.TrimSpace(`Apply the always-on homelab power policy.
 
 Sets: autorestart=1, sleep=0, displaysleep=5, disksleep=0, powernap=0,
 hibernatemode=0, womp=1. Idempotent — re-running re-applies and prints the
 current state.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachinePowerHarden() },
+	Run: func(cmd *cobra.Command, args []string) { failOn(enablePowerHarden()) },
+}
+
+var machinePowerDisableCmd = &cobra.Command{
+	Use:   "disable",
+	Short: "Reset pmset to macOS defaults",
+	Run:   func(cmd *cobra.Command, args []string) { failOn(disablePowerHarden()) },
 }
 
 var machinePowerStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show pmset -g custom output",
-	Run:   func(cmd *cobra.Command, args []string) { runMachinePowerStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { failOn(statusPower()) },
 }
 
 func init() {
-	machinePowerCmd.AddCommand(machinePowerHardenCmd, machinePowerStatusCmd)
+	machinePowerCmd.AddCommand(machinePowerEnableCmd, machinePowerDisableCmd, machinePowerStatusCmd)
 	machineConfigCmd.AddCommand(machinePowerCmd)
 }
 
-func runMachinePowerHarden() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
+func enablePowerHarden() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
 
-	print.SectionDivider("POWER HARDEN")
+	print.SectionDivider("POWER ENABLE")
 	print.Category("Before")
 	dumpPmset()
 	print.Empty()
@@ -64,7 +76,9 @@ func runMachinePowerHarden() {
 	for _, kv := range powerHardenSettings {
 		args = append(args, kv[0], kv[1])
 	}
-	failOn(run("/usr/bin/pmset", args...))
+	if err := run("/usr/bin/pmset", args...); err != nil {
+		return err
+	}
 	for _, kv := range powerHardenSettings {
 		print.Success(kv[0] + "=" + kv[1])
 	}
@@ -72,12 +86,63 @@ func runMachinePowerHarden() {
 	print.Empty()
 	print.Category("After")
 	dumpPmset()
+	return nil
 }
 
-func runMachinePowerStatus() {
-	failOn(requireDarwin())
+func disablePowerHarden() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
+
+	print.SectionDivider("POWER DISABLE")
+	print.Category("Before")
+	dumpPmset()
+	print.Empty()
+
+	print.Category("Applying")
+	if err := run("/usr/bin/pmset", "-a", "-resetdefaults"); err != nil {
+		return fmt.Errorf("pmset -resetdefaults: %w", err)
+	}
+	print.Success("pmset reset to macOS defaults")
+
+	print.Empty()
+	print.Category("After")
+	dumpPmset()
+	return nil
+}
+
+func statusPower() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
 	print.SectionDivider("POWER STATUS")
 	dumpPmset()
+	return nil
+}
+
+// checkPowerHardened reports whether all powerHardenSettings are currently
+// applied. Used as a CheckFn for the j config TUI.
+func checkPowerHardened() config.CheckResult {
+	out, err := runQuiet("/usr/bin/pmset", "-g", "custom")
+	if err != nil {
+		return config.CheckResult{}
+	}
+	settings := map[string]string{}
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) >= 2 {
+			settings[fields[0]] = fields[1]
+		}
+	}
+	for _, kv := range powerHardenSettings {
+		if settings[kv[0]] != kv[1] {
+			return config.CheckResult{}
+		}
+	}
+	return config.InstalledWithDetail("harden applied")
 }
 
 func dumpPmset() {

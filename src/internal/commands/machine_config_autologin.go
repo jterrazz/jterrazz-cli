@@ -7,13 +7,14 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	"github.com/spf13/cobra"
 )
 
 const autologinTargetUser = "jterrazz.agent"
 
-var autologinPasswordEnv string
+var autologinPasswordEnv = "AGENT_PASSWORD"
 
 var machineAutologinCmd = &cobra.Command{
 	Use:   "autologin",
@@ -34,19 +35,19 @@ If the env var named by --password-env (default AGENT_PASSWORD) is set, its valu
 passed to sysadminctl directly. Otherwise sysadminctl will prompt interactively for
 both the admin and the agent password. The password is never echoed and never written
 to disk except via macOS's own /etc/kcpassword (which sysadminctl manages).`),
-	Run: func(cmd *cobra.Command, args []string) { runMachineAutologinEnable() },
+	Run: func(cmd *cobra.Command, args []string) { failOn(enableAutologin()) },
 }
 
 var machineAutologinDisableCmd = &cobra.Command{
 	Use:   "disable",
 	Short: "Disable auto-login and clear /etc/kcpassword",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineAutologinDisable() },
+	Run:   func(cmd *cobra.Command, args []string) { failOn(disableAutologin()) },
 }
 
 var machineAutologinStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show auto-login + FileVault auto-login override state",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineAutologinStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { failOn(statusAutologin()) },
 }
 
 func init() {
@@ -55,21 +56,31 @@ func init() {
 	machineConfigCmd.AddCommand(machineAutologinCmd)
 }
 
-func runMachineAutologinStatus() {
-	failOn(requireDarwin())
+// statusAutologin prints the current auto-login state.
+func statusAutologin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
 	print.SectionDivider("AUTOLOGIN STATUS")
 	dumpAutologinState()
+	return nil
 }
 
-func runMachineAutologinEnable() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
+// enableAutologin enables FileVault-aware GUI auto-login for the agent user.
+// Returns an error instead of os.Exit so it can be embedded in a TUI.
+func enableAutologin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
 
 	if _, err := exec.LookPath("sysadminctl"); err != nil {
-		failOn(fmt.Errorf("sysadminctl not found: %w", err))
+		return fmt.Errorf("sysadminctl not found: %w", err)
 	}
 	if _, err := os.Stat("/Users/" + autologinTargetUser); err != nil {
-		failOn(fmt.Errorf("user %s does not exist on this Mac", autologinTargetUser))
+		return fmt.Errorf("user %s does not exist on this Mac", autologinTargetUser)
 	}
 
 	password := os.Getenv(autologinPasswordEnv)
@@ -79,12 +90,12 @@ func runMachineAutologinEnable() {
 		// /dev/tty with stty no-echo so the password never appears in scrollback or env.
 		pw, err := promptPasswordTTY(fmt.Sprintf("Agent password for %s (sets /etc/kcpassword): ", autologinTargetUser))
 		if err != nil {
-			failOn(fmt.Errorf("read password: %w (or pre-set %s in the env via `sudo --preserve-env=%s ...`)", err, autologinPasswordEnv, autologinPasswordEnv))
+			return fmt.Errorf("read password: %w (or pre-set %s in the env via `sudo --preserve-env=%s ...`)", err, autologinPasswordEnv, autologinPasswordEnv)
 		}
 		password = pw
 	}
 	if password == "" {
-		failOn(fmt.Errorf("empty password — refusing to call sysadminctl with no -password (it would silently no-op)"))
+		return fmt.Errorf("empty password — refusing to call sysadminctl with no -password (it would silently no-op)")
 	}
 
 	print.SectionDivider("AUTOLOGIN ENABLE")
@@ -93,7 +104,9 @@ func runMachineAutologinEnable() {
 	print.Empty()
 
 	print.Category("Applying")
-	failOn(run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "DisableFDEAutoLogin", "-bool", "NO"))
+	if err := run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "DisableFDEAutoLogin", "-bool", "NO"); err != nil {
+		return err
+	}
 	print.Success("DisableFDEAutoLogin = NO")
 
 	// macOS 26 sysadminctl -autoLogin set refuses on FileVault-enabled disks
@@ -103,27 +116,27 @@ func runMachineAutologinEnable() {
 	// autoLoginUser via defaults. loginwindow at boot still respects
 	// DisableFDEAutoLogin and processes /etc/kcpassword.
 	if err := os.WriteFile("/etc/kcpassword", encodeKCPassword(password), 0o600); err != nil {
-		failOn(fmt.Errorf("write /etc/kcpassword: %w", err))
+		return fmt.Errorf("write /etc/kcpassword: %w", err)
 	}
 	if err := os.Chmod("/etc/kcpassword", 0o600); err != nil {
-		failOn(err)
+		return err
 	}
 	// /etc/kcpassword must be owned by root:wheel; we already are root via sudo.
 	_ = os.Chown("/etc/kcpassword", 0, 0)
 	print.Success("/etc/kcpassword written (root:wheel 0600)")
 
 	if err := run("/usr/bin/defaults", "write", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser", "-string", autologinTargetUser); err != nil {
-		failOn(fmt.Errorf("defaults write autoLoginUser: %w", err))
+		return fmt.Errorf("defaults write autoLoginUser: %w", err)
 	}
 	print.Success("autoLoginUser = " + autologinTargetUser)
 
 	// Cross-check both side effects.
 	if _, err := os.Stat("/etc/kcpassword"); err != nil {
-		failOn(fmt.Errorf("/etc/kcpassword missing after write"))
+		return fmt.Errorf("/etc/kcpassword missing after write")
 	}
 	out, err := runQuiet("/usr/bin/defaults", "read", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser")
 	if err != nil || strings.TrimSpace(out) != autologinTargetUser {
-		failOn(fmt.Errorf("autoLoginUser cross-check failed (got %q)", strings.TrimSpace(out)))
+		return fmt.Errorf("autoLoginUser cross-check failed (got %q)", strings.TrimSpace(out))
 	}
 
 	// Belt & braces: clear the screen-locked-after-resume flag so the GUI session
@@ -135,11 +148,17 @@ func runMachineAutologinEnable() {
 	dumpAutologinState()
 	print.Empty()
 	print.Dim("Verify end-to-end: `sudo fdesetup authrestart -delayminutes 0` (or `j machine restart` from the MacBook).")
+	return nil
 }
 
-func runMachineAutologinDisable() {
-	failOn(requireDarwin())
-	failOn(requireRoot())
+// disableAutologin disables auto-login and clears /etc/kcpassword.
+func disableAutologin() error {
+	if err := requireDarwin(); err != nil {
+		return err
+	}
+	if err := requireRoot(); err != nil {
+		return err
+	}
 
 	print.SectionDivider("AUTOLOGIN DISABLE")
 	_ = run("/usr/sbin/sysadminctl", "-autologin", "off")
@@ -150,6 +169,20 @@ func runMachineAutologinDisable() {
 	print.Empty()
 	print.Category("After")
 	dumpAutologinState()
+	return nil
+}
+
+// checkAutologinEnabled reports whether GUI auto-login is currently set up for
+// the agent user. Used as a CheckFn for the j config TUI.
+func checkAutologinEnabled() config.CheckResult {
+	out, err := runQuiet("/usr/bin/defaults", "read", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser")
+	if err != nil || strings.TrimSpace(out) != autologinTargetUser {
+		return config.CheckResult{}
+	}
+	if _, err := os.Stat("/etc/kcpassword"); err != nil {
+		return config.CheckResult{}
+	}
+	return config.InstalledWithDetail(autologinTargetUser)
 }
 
 func dumpAutologinState() {
