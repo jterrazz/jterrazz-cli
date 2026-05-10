@@ -54,21 +54,10 @@ func (m Model) renderContent() string {
 }
 
 // renderTabBar renders the horizontal tab strip shown under the page header.
-// The active tab is highlighted; others are dimmed.
+// Delegates to the shared components.Tabs so the strip looks identical
+// across every tabbed TUI in the project.
 func (m Model) renderTabBar(width int) string {
-	var b strings.Builder
-	b.WriteString(" ")
-	for i, label := range TabLabels {
-		if i > 0 {
-			b.WriteString("  ")
-		}
-		if i == m.activeTab {
-			b.WriteString(theme.Selected.Render("● " + label))
-		} else {
-			b.WriteString(theme.Muted.Render("○ " + label))
-		}
-	}
-	return b.String()
+	return components.Tabs{Labels: TabLabels, Active: m.activeTab}.Render(width)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
