@@ -7,7 +7,7 @@ import (
 )
 
 // Role is the function a machine plays in the user's setup. The role drives which
-// status checks run, which `j machine config` mutations are allowed, and how the
+// status checks run, which `j config` Homelab items are visible, and how the
 // TUI groups things.
 type Role string
 

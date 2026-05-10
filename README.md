@@ -45,7 +45,7 @@ j machine add macbook  --role dev                                 # Add a local-
 j machine remove mac-mini                                         # Refuses if alias is self
 ```
 
-The role decides what `j machine status` checks and which `j machine config` commands are allowed.
+The role decides what `j machine status` reports and which items `j config` exposes for this box.
 
 #### Inspect
 
@@ -62,20 +62,7 @@ j machine unlock <alias>      # Pre-boot SSH session to enter the FileVault pass
 
 `probe`/`restart`/`unlock` resolve the SSH endpoint from the registry. They refuse to act on the alias marked as self.
 
-#### Configure (homelab-only)
-
-These mutate macOS state on the local box and refuse to run unless the current machine is registered as `homelab`:
-
-```sh
-j machine config autologin       enable | disable | status
-j machine config power           harden | status
-j machine config lock-after-login install | uninstall | status
-j machine config sshd            enable | status
-```
-
-Together they bring up the FileVault-aware GUI auto-login (`autologin enable` + `lock-after-login install`), the always-on power policy (`power harden`), and Remote Login with the right group membership for FileVault pre-boot SSH unlock (`sshd enable`).
-
-The Mac mini setup uses all of these so the Aqua session always comes back up after a software reboot or cold boot, with the screen physically locked but the agent runtime alive inside it.
+To configure the local machine (terminal, security, editor, system, homelab services), use `j config`.
 
 ### `j install [tool...]`
 
@@ -103,16 +90,20 @@ j clean --all            # Clean everything (brew cache, docker, multipass, tras
 j clean docker trash     # Clean specific items
 ```
 
-### `j setup`
+### `j config`
 
-Interactive TUI to run configuration scripts:
+Interactive TUI for everything that configures the local machine. Each item shows whether it's currently applied via a check function; toggleable items run their disable action when already configured.
+
+Categories:
 
 - **Terminal** — ghostty, tmux, hushlogin
 - **Security** — GPG commit signing, SSH keygen, GitHub CLI auth, encrypted DNS (Quad9), Spotlight exclusion
 - **Editor** — Zed config
 - **System** — JAVA_HOME, dock reset/spacer
-- **Remote** — Tailscale configuration
-- **Skills** — AI skills management
+- **Homelab** — auto-login, power policy, lock-after-login, sshd (visible only when the current machine is registered as `homelab`)
+- **Navigation** — Tailscale (`remote`), AI skills
+
+Homelab items are toggleable: pressing enter on an enabled item disables it. They prompt for sudo via the released TTY when needed; set `AGENT_PASSWORD` in your environment to skip the auto-login prompt.
 
 ### `j remote`
 

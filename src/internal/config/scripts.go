@@ -923,11 +923,3 @@ func CheckScript(script Script) CheckResult {
 	return CheckResult{} // No check = unknown state
 }
 
-// RunScript runs a script (placeholder - actual implementation in commands)
-func RunScript(script Script) error {
-	if script.RunFn != nil {
-		return script.RunFn()
-	}
-	// Scripts without RunFn are invoked via `j setup <RunCmd>`
-	return nil
-}
