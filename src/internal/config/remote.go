@@ -48,9 +48,11 @@ type RemoteSettings struct {
 
 // JRCConfig is the user runtime config persisted in ~/.jterrazz/config.json.
 type JRCConfig struct {
-	Remote    RemoteSettings `json:"remote"`
-	UserEmail string         `json:"user_email,omitempty"`
-	UserName  string         `json:"user_name,omitempty"`
+	Remote    RemoteSettings     `json:"remote"`
+	UserEmail string             `json:"user_email,omitempty"`
+	UserName  string             `json:"user_name,omitempty"`
+	Self      string             `json:"self,omitempty"`
+	Machines  map[string]Machine `json:"machines,omitempty"`
 }
 
 // RemoteStatus summarizes current remote connectivity.
