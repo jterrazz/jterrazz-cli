@@ -31,8 +31,8 @@ Full-screen TUI dashboard, organised into 4 tabs (`←/→` to cycle, `1..4` to 
 
 - **System** — live CPU/Memory/GPU/Network sparklines, top processes, network, Tailscale peers, and system health (firewall, DNS, etc.)
 - **Workspace** — tracked git repos, Docker containers, project dependencies
-- **Config** — every `j config` item with its current state, grouped by category (Terminal / Security / Editor / System / Server / Network / Identity). Server subsection only shows on a server-registered machine.
-- **Software** — 100+ tracked tools with versions, by category
+- **Applications** — 100+ tracked tools with versions, by category
+- **Configuration** — every `j config` item with its current state, grouped by category (Terminal / Security / Editor / System / Server / Network / Identity). Server subsection only shows on a server-registered machine.
 
 Everything loads in parallel with a progress bar; the System tab's live readings refresh every second.
 

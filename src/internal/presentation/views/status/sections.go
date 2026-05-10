@@ -21,7 +21,10 @@ const minColumnWidth = 44
 
 // TabLabels enumerates the j status tabs in display order. Index in this
 // slice maps to Model.activeTab.
-var TabLabels = []string{"System", "Workspace", "Config", "Software"}
+//
+// Configuration sits last because it's the slowest-changing of the four —
+// you scroll past Activity / Workspace / Applications way more often.
+var TabLabels = []string{"System", "Workspace", "Applications", "Configuration"}
 
 // renderContent renders the active tab's content. Section dividers are gone —
 // the tab bar above the viewport now plays that role.
@@ -38,14 +41,14 @@ func (m Model) renderContent() string {
 	sections := m.groupBySection()
 
 	switch m.activeTab {
-	case 0:
+	case 0: // System
 		return m.renderActivity(sections, w) + "\n" + m.renderEnvironment(sections, w)
-	case 1:
+	case 1: // Workspace
 		return m.renderWorkspace(sections, w)
-	case 2:
-		return m.renderConfig(sections, w)
-	case 3:
+	case 2: // Applications
 		return m.renderTools(sections, w)
+	case 3: // Configuration
+		return m.renderConfig(sections, w)
 	}
 	return ""
 }
