@@ -10,7 +10,6 @@ import (
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -20,41 +19,6 @@ const (
 	lockAfterLoginPlist  = "/Users/jterrazz.agent/Library/LaunchAgents/ai.jterrazz.lock-after-login.plist"
 	lockAfterLoginLogDir = "/Users/jterrazz.agent/.openclaw/logs"
 )
-
-var machineLockAfterLoginCmd = &cobra.Command{
-	Use:     "lock-after-login",
-	Aliases: []string{"lockafterlogin"},
-	Short:   "Manage the LaunchAgent that locks the screen ~20s after auto-login",
-}
-
-var machineLockAfterLoginEnableCmd = &cobra.Command{
-	Use:     "enable",
-	Aliases: []string{"install"},
-	Short:   "Install the lock-after-login LaunchAgent for jterrazz.agent",
-	Long: strings.TrimSpace(`Install the per-user LaunchAgent that runs lock-after-login.sh on auto-login.
-
-This wraps the existing ~/.openclaw/scripts/lock-after-login.sh — the script is reused, not duplicated.
-Idempotent: rewrites the plist with current paths and re-bootstraps the agent if a GUI session is active.`),
-	Run: func(cmd *cobra.Command, args []string) { failOn(enableLockAfterLogin()) },
-}
-
-var machineLockAfterLoginDisableCmd = &cobra.Command{
-	Use:     "disable",
-	Aliases: []string{"uninstall"},
-	Short:   "Bootout and remove the lock-after-login LaunchAgent",
-	Run:     func(cmd *cobra.Command, args []string) { failOn(disableLockAfterLogin()) },
-}
-
-var machineLockAfterLoginStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show whether the lock-after-login LaunchAgent is installed and loaded",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(statusLockAfterLogin()) },
-}
-
-func init() {
-	machineLockAfterLoginCmd.AddCommand(machineLockAfterLoginEnableCmd, machineLockAfterLoginDisableCmd, machineLockAfterLoginStatusCmd)
-	machineConfigCmd.AddCommand(machineLockAfterLoginCmd)
-}
 
 func enableLockAfterLogin() error {
 	if err := requireDarwin(); err != nil {
@@ -135,15 +99,6 @@ func disableLockAfterLogin() error {
 	print.SectionDivider("LOCK-AFTER-LOGIN DISABLE")
 	print.Success("Removed " + lockAfterLoginPlist)
 	print.Category("After")
-	dumpLockAfterLoginState()
-	return nil
-}
-
-func statusLockAfterLogin() error {
-	if err := requireDarwin(); err != nil {
-		return err
-	}
-	print.SectionDivider("LOCK-AFTER-LOGIN STATUS")
 	dumpLockAfterLoginState()
 	return nil
 }

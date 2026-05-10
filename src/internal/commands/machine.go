@@ -37,9 +37,6 @@ type machineCheck struct {
 var machineCmd = &cobra.Command{
 	Use:   "machine",
 	Short: "Manage and inspect this machine and its services",
-	Run: func(cmd *cobra.Command, args []string) {
-		runMachineStatus()
-	},
 }
 
 var machineStatusCmd = &cobra.Command{

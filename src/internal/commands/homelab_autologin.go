@@ -9,52 +9,12 @@ import (
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	"github.com/spf13/cobra"
 )
 
-const autologinTargetUser = "jterrazz.agent"
-
-var autologinPasswordEnv = "AGENT_PASSWORD"
-
-var machineAutologinCmd = &cobra.Command{
-	Use:   "autologin",
-	Short: "Manage GUI auto-login for the agent user",
-	Long: strings.TrimSpace(`Manage GUI auto-login for jterrazz.agent on a FileVault-encrypted Mac.
-
-Auto-login bypasses the loginwindow on cold boot or after fdesetup authrestart, so an
-agent runtime can drive the Aqua session without anyone at the keyboard. Per-user
-"lock after login" must be installed separately to keep the screen physically protected.`),
-}
-
-var machineAutologinEnableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Enable auto-login for jterrazz.agent (FileVault-aware)",
-	Long: strings.TrimSpace(`Enable auto-login for jterrazz.agent.
-
-If the env var named by --password-env (default AGENT_PASSWORD) is set, its value is
-passed to sysadminctl directly. Otherwise sysadminctl will prompt interactively for
-both the admin and the agent password. The password is never echoed and never written
-to disk except via macOS's own /etc/kcpassword (which sysadminctl manages).`),
-	Run: func(cmd *cobra.Command, args []string) { failOn(enableAutologin()) },
-}
-
-var machineAutologinDisableCmd = &cobra.Command{
-	Use:   "disable",
-	Short: "Disable auto-login and clear /etc/kcpassword",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(disableAutologin()) },
-}
-
-var machineAutologinStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show auto-login + FileVault auto-login override state",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(statusAutologin()) },
-}
-
-func init() {
-	machineAutologinEnableCmd.Flags().StringVar(&autologinPasswordEnv, "password-env", "AGENT_PASSWORD", "env var that holds the agent password (read at run time, never logged)")
-	machineAutologinCmd.AddCommand(machineAutologinEnableCmd, machineAutologinDisableCmd, machineAutologinStatusCmd)
-	machineConfigCmd.AddCommand(machineAutologinCmd)
-}
+const (
+	autologinTargetUser  = "jterrazz.agent"
+	autologinPasswordEnv = "AGENT_PASSWORD"
+)
 
 // statusAutologin prints the current auto-login state.
 func statusAutologin() error {
@@ -95,7 +55,7 @@ func enableAutologin() error {
 		password = pw
 	}
 	if password == "" {
-		return fmt.Errorf("empty password — refusing to call sysadminctl with no -password (it would silently no-op)")
+		return fmt.Errorf("empty password — refusing to set /etc/kcpassword with an empty value")
 	}
 
 	print.SectionDivider("AUTOLOGIN ENABLE")

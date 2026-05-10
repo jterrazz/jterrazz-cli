@@ -6,7 +6,6 @@ import (
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	"github.com/spf13/cobra"
 )
 
 // powerHardenSettings is the canonical homelab power policy: never sleep, restart
@@ -23,39 +22,6 @@ var powerHardenSettings = [][2]string{
 	{"powernap", "0"},
 	{"hibernatemode", "0"},
 	{"womp", "1"},
-}
-
-var machinePowerCmd = &cobra.Command{
-	Use:   "power",
-	Short: "Manage homelab power policy (sleep, autorestart, wake)",
-}
-
-var machinePowerEnableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Apply always-on homelab power policy via pmset -a",
-	Long: strings.TrimSpace(`Apply the always-on homelab power policy.
-
-Sets: autorestart=1, sleep=0, displaysleep=5, disksleep=0, powernap=0,
-hibernatemode=0, womp=1. Idempotent — re-running re-applies and prints the
-current state.`),
-	Run: func(cmd *cobra.Command, args []string) { failOn(enablePowerHarden()) },
-}
-
-var machinePowerDisableCmd = &cobra.Command{
-	Use:   "disable",
-	Short: "Reset pmset to macOS defaults",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(disablePowerHarden()) },
-}
-
-var machinePowerStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show pmset -g custom output",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(statusPower()) },
-}
-
-func init() {
-	machinePowerCmd.AddCommand(machinePowerEnableCmd, machinePowerDisableCmd, machinePowerStatusCmd)
-	machineConfigCmd.AddCommand(machinePowerCmd)
 }
 
 func enablePowerHarden() error {
@@ -110,15 +76,6 @@ func disablePowerHarden() error {
 
 	print.Empty()
 	print.Category("After")
-	dumpPmset()
-	return nil
-}
-
-func statusPower() error {
-	if err := requireDarwin(); err != nil {
-		return err
-	}
-	print.SectionDivider("POWER STATUS")
 	dumpPmset()
 	return nil
 }

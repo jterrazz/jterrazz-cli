@@ -5,44 +5,9 @@ import (
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	"github.com/spf13/cobra"
 )
 
 const sshAccessGroup = "com.apple.access_ssh"
-
-var machineSshdCmd = &cobra.Command{
-	Use:   "sshd",
-	Short: "Manage Remote Login (sshd) + FileVault pre-boot SSH unlock",
-}
-
-var machineSshdEnableCmd = &cobra.Command{
-	Use:   "enable",
-	Short: "Enable Remote Login (sshd) and add jterrazz.agent to access_ssh",
-	Long: strings.TrimSpace(`Enable Remote Login (sshd) and restrict it to admins + jterrazz.agent.
-
-The FileVault "remote unlock at startup" feature itself must be toggled in the GUI:
-  System Settings → Privacy & Security → FileVault → (the remote-unlock toggle)
-This command prints that reminder; macOS does not expose the toggle via CLI on
-recent versions without MDM.`),
-	Run: func(cmd *cobra.Command, args []string) { failOn(enableSshd()) },
-}
-
-var machineSshdDisableCmd = &cobra.Command{
-	Use:   "disable",
-	Short: "Disable Remote Login (sshd) and remove jterrazz.agent from access_ssh",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(disableSshd()) },
-}
-
-var machineSshdStatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show Remote Login state and access_ssh group membership",
-	Run:   func(cmd *cobra.Command, args []string) { failOn(statusSshd()) },
-}
-
-func init() {
-	machineSshdCmd.AddCommand(machineSshdEnableCmd, machineSshdDisableCmd, machineSshdStatusCmd)
-	machineConfigCmd.AddCommand(machineSshdCmd)
-}
 
 func enableSshd() error {
 	if err := requireDarwin(); err != nil {
@@ -117,15 +82,6 @@ func disableSshd() error {
 
 	print.Empty()
 	print.Category("After")
-	dumpSshdState()
-	return nil
-}
-
-func statusSshd() error {
-	if err := requireDarwin(); err != nil {
-		return err
-	}
-	print.SectionDivider("SSHD STATUS")
 	dumpSshdState()
 	return nil
 }

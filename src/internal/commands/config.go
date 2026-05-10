@@ -2,23 +2,25 @@ package commands
 
 import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
-	"github.com/jterrazz/jterrazz-cli/src/internal/domain/skill"
-	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	setupview "github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/setup"
 	"github.com/spf13/cobra"
 )
 
-var setupCmd = &cobra.Command{
-	Use:   "setup",
-	Short: "Setup system configurations (interactive)",
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Configure this machine (interactive TUI)",
+	Long: "Open the configuration TUI. Lists every configurable item — terminal " +
+		"setup, security, editor, system tweaks, and (on a homelab-registered " +
+		"machine) homelab services. Items show their current state via CheckFn; " +
+		"toggleable items run their disable action when already configured.",
 	Run: func(cmd *cobra.Command, args []string) {
 		setupview.RunOrExit(runScript)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(configCmd)
 }
 
 // runScript runs a script by name. For toggleable items (DisableFn != nil),
@@ -46,13 +48,3 @@ func runScript(name string) {
 	}
 }
 
-// runSkillsUI runs the skills management UI
-func runSkillsUI() {
-	if !skill.IsInstalled() {
-		print.Error("skills CLI not installed. Run: npm install -g skills")
-		return
-	}
-
-	setupview.InitSkillsState()
-	components.RunOrExit(setupview.SkillsConfig())
-}
