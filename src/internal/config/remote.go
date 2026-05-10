@@ -34,8 +34,6 @@ const (
 )
 
 const (
-	remoteModeSystemLegacy  RemoteMode       = "system"
-	remoteAuthNoneLegacy    RemoteAuthMethod = "none"
 	defaultRemoteMode       RemoteMode       = RemoteModeUserspace
 	defaultRemoteAuthMethod RemoteAuthMethod = RemoteAuthOAuth
 )
@@ -105,10 +103,10 @@ func defaultRemoteSettings() RemoteSettings {
 }
 
 func normalizeRemoteSettings(s RemoteSettings) RemoteSettings {
-	if s.Mode == "" || s.Mode == remoteModeSystemLegacy {
+	if s.Mode == "" {
 		s.Mode = defaultRemoteMode
 	}
-	if s.AuthMethod == "" || s.AuthMethod == remoteAuthNoneLegacy {
+	if s.AuthMethod == "" {
 		s.AuthMethod = defaultRemoteAuthMethod
 	}
 	return s
@@ -147,38 +145,8 @@ func keepAwakePIDPath() string {
 	return filepath.Join(userspaceDir(), "caffeinate.pid")
 }
 
-// migrateOldConfig moves data from ~/.config/jterrazz/ to ~/.jterrazz/ if needed.
-func migrateOldConfig() {
-	oldDir := filepath.Join(os.Getenv("HOME"), ".config", "jterrazz")
-	newDir := jterrazDir()
-
-	// Migrate config.json
-	oldJRC := filepath.Join(oldDir, "jrc.json")
-	newJRC := jrcPath()
-	if _, err := os.Stat(oldJRC); err == nil {
-		if _, err := os.Stat(newJRC); os.IsNotExist(err) {
-			_ = os.MkdirAll(newDir, 0700)
-			if data, readErr := os.ReadFile(oldJRC); readErr == nil {
-				_ = os.WriteFile(newJRC, data, 0600)
-			}
-		}
-	}
-
-	// Migrate tailscale state
-	oldTS := filepath.Join(oldDir, "tailscale")
-	newTS := userspaceDir()
-	if info, err := os.Stat(oldTS); err == nil && info.IsDir() {
-		if _, err := os.Stat(newTS); os.IsNotExist(err) {
-			_ = os.MkdirAll(newDir, 0700)
-			exec.Command("cp", "-r", oldTS, newTS).Run()
-		}
-	}
-}
-
 // LoadJRC loads ~/.jterrazz/config.json. Missing file returns defaults.
 func LoadJRC() (JRCConfig, error) {
-	migrateOldConfig()
-
 	cfg := JRCConfig{Remote: defaultRemoteSettings()}
 
 	data, err := os.ReadFile(jrcPath())

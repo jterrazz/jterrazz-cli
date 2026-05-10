@@ -11,10 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	autologinTargetUser    = "jterrazz.agent"
-	autologinDisableScript = "/Users/jterrazz.agent/.openclaw/scripts/disable-agent-autologin.sh"
-)
+const autologinTargetUser = "jterrazz.agent"
 
 var autologinPasswordEnv string
 
@@ -144,15 +141,6 @@ func runHostAutologinDisable() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
-	if _, err := os.Stat(autologinDisableScript); err == nil {
-		// Reuse the existing rollback so behavior stays identical to the original setup script.
-		print.SectionDivider("AUTOLOGIN DISABLE")
-		print.Dim("Delegating to " + autologinDisableScript)
-		failOn(run("/bin/zsh", autologinDisableScript))
-		return
-	}
-
-	// Fallback: same effects, if the rollback script has been moved.
 	print.SectionDivider("AUTOLOGIN DISABLE")
 	_ = run("/usr/sbin/sysadminctl", "-autologin", "off")
 	_ = os.Remove("/etc/kcpassword")

@@ -138,19 +138,6 @@ func TestShouldRetryWithSuggestedFlagsNewline(t *testing.T) {
 	}
 }
 
-func TestNormalizeRemoteSettingsMigratesLegacyValues(t *testing.T) {
-	got := normalizeRemoteSettings(RemoteSettings{
-		Mode:       RemoteMode("system"),
-		AuthMethod: RemoteAuthMethod("none"),
-	})
-	if got.Mode != RemoteModeUserspace {
-		t.Fatalf("mode got=%q want=%q", got.Mode, RemoteModeUserspace)
-	}
-	if got.AuthMethod != RemoteAuthOAuth {
-		t.Fatalf("auth got=%q want=%q", got.AuthMethod, RemoteAuthOAuth)
-	}
-}
-
 func TestIsKeepAwakeRunningWithCurrentProcessPID(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

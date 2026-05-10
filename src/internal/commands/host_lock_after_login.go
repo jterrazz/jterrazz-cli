@@ -89,10 +89,6 @@ func runHostLockAfterLoginInstall() {
 
 	print.Success("Wrote " + lockAfterLoginPlist)
 
-	// Migrate from the legacy ai.alfred.* label if it's still installed: bootout the
-	// old launchd entry and remove its plist so we don't end up locking twice on login.
-	migrateLegacyLockAfterLogin(uid)
-
 	// Try to bootstrap the agent in the live GUI session if one exists.
 	consoleOwner, _ := runQuiet("/usr/bin/stat", "-f", "%Su", "/dev/console")
 	if strings.TrimSpace(consoleOwner) == lockAfterLoginUser && uid >= 0 {
@@ -190,22 +186,6 @@ func buildLockAfterLoginPlist() string {
 		`</plist>`,
 		"",
 	}, "\n")
-}
-
-const legacyLockAfterLoginLabel = "ai.alfred.lock-after-login"
-
-var legacyLockAfterLoginPlist = "/Users/jterrazz.agent/Library/LaunchAgents/" + legacyLockAfterLoginLabel + ".plist"
-
-func migrateLegacyLockAfterLogin(uid int) {
-	if _, err := os.Stat(legacyLockAfterLoginPlist); err != nil {
-		return
-	}
-	if uid >= 0 {
-		_ = exec.Command("/bin/launchctl", "bootout", fmt.Sprintf("gui/%d/%s", uid, legacyLockAfterLoginLabel)).Run()
-	}
-	if err := os.Remove(legacyLockAfterLoginPlist); err == nil {
-		print.Success("Migrated: removed legacy " + legacyLockAfterLoginPlist)
-	}
 }
 
 func lookupTargetUserIDs(username string) (int, int) {

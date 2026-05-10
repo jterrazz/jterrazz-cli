@@ -177,7 +177,6 @@ func openClawHostChecks(profile hostProfile) []hostCheck {
 	var checks []hostCheck
 	checks = append(checks, checkOpenClawBinary(profile))
 	checks = append(checks, checkOpenClawProcess(profile))
-	checks = append(checks, checkOpenClawLaunchDaemon(profile))
 	checks = append(checks, checkOpenClawLaunchAgent(profile))
 	checks = append(checks, checkOpenClawConfig(profile))
 	checks = append(checks, checkOpenClawChannels(profile)...)
@@ -200,7 +199,6 @@ func devHostChecks(profile hostProfile) []hostCheck {
 		checkDeveloperFolder(profile),
 		checkOrbStackInstalled(profile),
 		checkOrbStackLoginItem(profile),
-		checkOrbStackObsoleteDaemon(profile),
 		checkOrbStackStatus(profile),
 		checkOrbStackProcess(profile),
 		checkDocker(profile),
@@ -326,20 +324,6 @@ func checkOpenClawProcess(profile hostProfile) hostCheck {
 		detail = "unexpected owner: " + line
 	}
 	return hostCheck{state, "all", "OpenClaw runtime", value, detail}
-}
-
-// checkOpenClawLaunchDaemon flags the legacy /Library/LaunchDaemons plist as a
-// leftover. The new model runs OpenClaw as a user LaunchAgent in the auto-logged-in
-// Aqua session — see checkOpenClawLaunchAgent.
-func checkOpenClawLaunchDaemon(profile hostProfile) hostCheck {
-	if _, err := os.Stat("/Library/LaunchDaemons/ai.openclaw.gateway.plist"); err == nil {
-		return hostCheck{hostStateWarn, "homelab", "OpenClaw daemon", "leftover", "legacy /Library/LaunchDaemons plist; remove now that OpenClaw runs as a user LaunchAgent"}
-	}
-	out, err := runOutput("launchctl", "print", "system/ai.openclaw.gateway")
-	if err == nil && strings.Contains(out, "state = running") {
-		return hostCheck{hostStateWarn, "homelab", "OpenClaw daemon", "running", "system LaunchDaemon still loaded; bootout and remove the plist"}
-	}
-	return hostCheck{hostStateOK, "homelab", "OpenClaw daemon", "absent", "no leftover LaunchDaemon — gateway runs as a user LaunchAgent now"}
 }
 
 // checkOpenClawLaunchAgent expects the user LaunchAgent at
@@ -468,10 +452,6 @@ func checkLockAfterLogin(profile hostProfile) hostCheck {
 	if _, err := os.Stat(path); err == nil {
 		return hostCheck{hostStateOK, "homelab", "Lock after login", "installed", path}
 	}
-	legacy := filepath.Join(home, "Library/LaunchAgents/ai.alfred.lock-after-login.plist")
-	if _, err := os.Stat(legacy); err == nil {
-		return hostCheck{hostStateWarn, "homelab", "Lock after login", "legacy label", "run `j host lock-after-login install` to migrate to ai.jterrazz.*"}
-	}
 	return hostCheck{hostStateInfo, "homelab", "Lock after login", "missing", "run `j host lock-after-login install`"}
 }
 
@@ -512,21 +492,8 @@ func checkOrbStackInstalled(profile hostProfile) hostCheck {
 }
 
 // checkOrbStackLoginItem confirms OrbStack is registered as a Login Item, which is
-// how the auto-logged-in Aqua session brings up Docker. The legacy
-// ~/Library/LaunchAgents/ai.orbstack.background-start.plist + script that did the
-// same job pre-auto-login are no longer expected — flagged as a leftover if
-// either is still present.
+// how the auto-logged-in Aqua session brings up Docker.
 func checkOrbStackLoginItem(profile hostProfile) hostCheck {
-	home, _ := os.UserHomeDir()
-	for _, leftover := range []string{
-		filepath.Join(home, "Library/LaunchAgents/ai.orbstack.background-start.plist"),
-		filepath.Join(home, ".openclaw/scripts/orbstack-background-start.sh"),
-	} {
-		if _, err := os.Stat(leftover); err == nil {
-			return hostCheck{hostStateWarn, "homelab", "OrbStack autostart", "leftover", "remove " + leftover + " — OrbStack auto-starts via the app's Login Items entry now"}
-		}
-	}
-
 	// Querying Login Items needs an Automation entitlement for "System Events". If
 	// that's missing, osascript errors instead of prompting in a non-GUI shell, so
 	// fall back to an info-level note instead of a noisy warning.
@@ -538,14 +505,6 @@ func checkOrbStackLoginItem(profile hostProfile) hostCheck {
 		return hostCheck{hostStateOK, "homelab", "OrbStack autostart", "Login Item", "starts via the auto-logged-in Aqua session"}
 	}
 	return hostCheck{hostStateWarn, "homelab", "OrbStack autostart", "missing", "OrbStack is not in Login Items — open OrbStack → Settings → General → Open at login"}
-}
-
-func checkOrbStackObsoleteDaemon(profile hostProfile) hostCheck {
-	path := "/Library/LaunchDaemons/ai.orbstack.headless-start.plist"
-	if _, err := os.Stat(path); err != nil {
-		return hostCheck{hostStateOK, "homelab", "OrbStack old daemon", "absent", "obsolete system LaunchDaemon cleaned up"}
-	}
-	return hostCheck{hostStateWarn, "homelab", "OrbStack old daemon", "present", "remove: LaunchDaemon hits TCC; use Background LaunchAgent instead"}
 }
 
 func checkOrbStackStatus(profile hostProfile) hostCheck {
