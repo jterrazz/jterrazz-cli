@@ -47,6 +47,11 @@ type Model struct {
 	// install/uninstall completes — never during navigation.
 	checkCache map[string]config.CheckResult
 
+	// ── Skills tab ───────────────────────────────────────────────────
+	skillSections   []skillSection
+	skillCursor     cursorPos
+	skillsInstalled map[string]bool
+
 	// ── Cross-tab ────────────────────────────────────────────────────
 	selfAlias string
 	selfRole  config.Role
@@ -97,6 +102,8 @@ func NewModel() Model {
 		selfRole:   role,
 	}
 	model.refreshCheckCache()
+	model.refreshSkillSections()
+	model.skillCursor = firstSkillCursor(model.skillSections)
 	return model
 }
 

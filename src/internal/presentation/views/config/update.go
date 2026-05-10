@@ -54,7 +54,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.lastErr = nil
 			m.lastResult = fmt.Sprintf("%sed %s", capitalize(msg.verb), msg.scriptName)
 		}
+		// Refresh both caches — actionDoneMsg doesn't carry the tab origin
+		// and the lookups are cheap. Configuration tab's rebuildSections
+		// also clamps its cursor.
 		m.rebuildSections()
+		m.refreshSkillSections()
 		return m, nil
 	}
 
@@ -133,15 +137,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.Up):
-		m.moveCursorUp()
+		m.cursorUpForActiveTab()
 		return m, nil
 
 	case key.Matches(msg, keys.Down):
-		m.moveCursorDown()
+		m.cursorDownForActiveTab()
 		return m, nil
 
 	case key.Matches(msg, keys.Toggle):
-		m.toggleCurrentSection()
+		m.toggleSectionForActiveTab()
 		return m, nil
 
 	case key.Matches(msg, keys.Details):
@@ -152,10 +156,61 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case key.Matches(msg, keys.Install):
-		return m.startInstall()
+		return m.installForActiveTab()
 
 	case key.Matches(msg, keys.Uninstall):
+		return m.uninstallForActiveTab()
+	}
+	return m, nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-tab dispatch helpers — each tab owns its own cursor + actions.
+// ─────────────────────────────────────────────────────────────────────────────
+
+func (m *Model) cursorUpForActiveTab() {
+	switch m.tabs.Active {
+	case tabConfiguration:
+		m.moveCursorUp()
+	case tabSkills:
+		m.moveSkillCursorUp()
+	}
+}
+
+func (m *Model) cursorDownForActiveTab() {
+	switch m.tabs.Active {
+	case tabConfiguration:
+		m.moveCursorDown()
+	case tabSkills:
+		m.moveSkillCursorDown()
+	}
+}
+
+func (m *Model) toggleSectionForActiveTab() {
+	switch m.tabs.Active {
+	case tabConfiguration:
+		m.toggleCurrentSection()
+	case tabSkills:
+		m.toggleCurrentSkillSection()
+	}
+}
+
+func (m Model) installForActiveTab() (tea.Model, tea.Cmd) {
+	switch m.tabs.Active {
+	case tabConfiguration:
+		return m.startInstall()
+	case tabSkills:
+		return m.skillStartInstall()
+	}
+	return m, nil
+}
+
+func (m Model) uninstallForActiveTab() (tea.Model, tea.Cmd) {
+	switch m.tabs.Active {
+	case tabConfiguration:
 		return m.startUninstall()
+	case tabSkills:
+		return m.skillStartUninstall()
 	}
 	return m, nil
 }

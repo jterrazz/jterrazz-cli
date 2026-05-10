@@ -40,7 +40,7 @@ func (m Model) renderTabBody() string {
 	case tabConfiguration:
 		return m.renderBody()
 	case tabSkills:
-		return contextStyle.Render(" Skills tab — coming soon.")
+		return m.renderSkillsBody()
 	case tabRemote:
 		return contextStyle.Render(" Remote tab — coming soon.")
 	}
@@ -185,11 +185,27 @@ func (m Model) renderFooter() string {
 		return contextStyle.Render(" " + iconBusy + " " + m.busyAction + "…")
 	}
 
+	var footer string
+	switch m.tabs.Active {
+	case tabConfiguration:
+		footer = m.renderConfigFooter()
+	case tabSkills:
+		footer = m.renderSkillsFooter()
+	default:
+		footer = contextStyle.Render(" —")
+	}
+
+	if m.lastResult != "" {
+		footer = m.renderResult() + "\n" + footer
+	}
+	return footer
+}
+
+// renderConfigFooter shows i/u/space hints contextual to the script under
+// the Configuration cursor.
+func (m Model) renderConfigFooter() string {
 	s := m.currentScript()
 	if s == nil {
-		if m.lastResult != "" {
-			return m.renderResult()
-		}
 		return contextStyle.Render(" no item selected")
 	}
 
@@ -207,13 +223,27 @@ func (m Model) renderFooter() string {
 	hints = append(hints, footerKey("space", detailLabel))
 
 	prefix := footerLabelStyle.Render(" ▶ " + s.Name + "  ")
-	keys := strings.Join(hints, footerSepStyle.Render("   "))
+	return prefix + strings.Join(hints, footerSepStyle.Render("   "))
+}
 
-	footer := prefix + keys
-	if m.lastResult != "" {
-		footer = m.renderResult() + "\n" + footer
+// renderSkillsFooter shows i/u hints contextual to the skill under the
+// Skills cursor. No detail panel for Skills (rows are simple name+state).
+func (m Model) renderSkillsFooter() string {
+	e, ok := m.currentSkill()
+	if !ok {
+		return contextStyle.Render(" no item selected")
 	}
-	return footer
+
+	var hints []string
+	if !m.skillInstalled(e) && e.Repo != "" {
+		hints = append(hints, footerKey("i", "install"))
+	}
+	if m.skillInstalled(e) {
+		hints = append(hints, footerKey("u", "uninstall"))
+	}
+
+	prefix := footerLabelStyle.Render(" ▶ " + e.Name + "  ")
+	return prefix + strings.Join(hints, footerSepStyle.Render("   "))
 }
 
 func (m Model) renderResult() string {
