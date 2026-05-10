@@ -63,7 +63,7 @@ func init() {
 }
 
 func listCleanItems() {
-	print.Header("j clean", "")
+	print.Header("j clean", machineContext())
 
 	for _, c := range config.Cleanables {
 		available := c.RequiresCmd == "" || config.CommandExists(c.RequiresCmd)

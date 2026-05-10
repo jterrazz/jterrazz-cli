@@ -52,17 +52,15 @@ func (m Model) renderModal() string {
 }
 
 // renderHeader builds the canonical j config header. The right-side context
-// shows which machine the TUI is operating on (alias + role).
+// shows which machine the TUI is operating on (alias + colour-coded role).
 func (m Model) renderHeader(command string) string {
-	context := fmt.Sprintf("self: %s · %s", m.selfAlias, m.roleLabel())
-	return print.RenderHeader(command, context, m.contentWidth())
-}
-
-func (m Model) roleLabel() string {
+	var context string
 	if m.selfRole == "" {
-		return "no role"
+		context = print.MutedText("(unregistered)")
+	} else {
+		context = m.selfAlias + " · " + print.RenderRole(string(m.selfRole))
 	}
-	return string(m.selfRole)
+	return print.RenderHeader(command, context, m.contentWidth())
 }
 
 func (m Model) renderDivider() string {

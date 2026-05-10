@@ -61,7 +61,7 @@ func init() {
 }
 
 func runMachineInit() {
-	print.Header("j machine init", "")
+	print.Header("j machine init", machineContext())
 
 	if alias, m, ok := config.SelfMachine(); ok {
 		print.Warning(fmt.Sprintf("This machine is already registered as %q (role=%s)", alias, m.Role))
@@ -98,7 +98,7 @@ func runMachineList() {
 	machines := config.ListMachines()
 	selfAlias, _, _ := config.SelfMachine()
 
-	print.Header("j machine list", "")
+	print.Header("j machine list", machineContext())
 	if len(machines) == 0 {
 		print.Dim("No machines registered. Run `j machine init` for this machine, or `j machine add <alias>` for a remote.")
 		return

@@ -110,8 +110,7 @@ func machineSelfRole() config.Role {
 func runMachineStatus() {
 	role := machineSelfRole()
 
-	context := fmt.Sprintf("%s · %s · %s", hostname(), role, osSummary())
-	print.Header("j machine status", context)
+	print.Header("j machine status", machineContext()+" · "+osSummary())
 
 	// State of the machine itself: encryption + reachability.
 	print.Category("Machine")

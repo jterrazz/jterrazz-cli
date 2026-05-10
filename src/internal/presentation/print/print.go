@@ -42,6 +42,35 @@ func Installing(name string) {
 }
 
 // =============================================================================
+// Role chip (used in header contexts)
+// =============================================================================
+
+// roleClientStyle / roleServerStyle colour the role chip so it pops without
+// shouting. Cool for client, warm for server.
+var (
+	roleClientStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#5fafd7"))
+	roleServerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#5fd75f"))
+)
+
+// RenderRole returns the role string with a subtle colour for client/server.
+// Falls back to plain text for unknown roles. Lives here (rather than in
+// commands or config) so TUIs and CLI commands share the same rendering
+// without pulling in a config dependency on the print package.
+func RenderRole(role string) string {
+	switch role {
+	case "client":
+		return roleClientStyle.Render(role)
+	case "server":
+		return roleServerStyle.Render(role)
+	}
+	return role
+}
+
+// MutedText returns text in the muted style — handy for "(unregistered)" or
+// other small bits of context that should fade into the background.
+func MutedText(s string) string { return theme.Muted.Render(s) }
+
+// =============================================================================
 // Header — canonical command header used by every j subcommand and TUI
 // =============================================================================
 

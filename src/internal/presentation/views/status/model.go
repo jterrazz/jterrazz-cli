@@ -89,6 +89,17 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+// selfHeaderContext returns the canonical "<alias> · <role>" context string
+// for the j status header. Mirrors commands.machineContext but lives in the
+// view package to avoid pulling commands into the dependency graph.
+func selfHeaderContext() string {
+	alias, m, ok := config.SelfMachine()
+	if !ok {
+		return print.MutedText("(unregistered)")
+	}
+	return alias + " · " + print.RenderRole(string(m.Role))
+}
+
 // scheduleProcessRefresh returns a command that triggers a process refresh after 1 second
 func scheduleProcessRefresh() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
@@ -353,16 +364,17 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// System info subtitle
-	subtitle := ""
+	// Header context: machine identity (alias · role) always present, plus
+	// OS info once sysinfo has loaded.
+	context := selfHeaderContext()
 	if sysinfo, ok := m.items["sysinfo"]; ok && sysinfo.Loaded {
-		subtitle = sysinfo.Detail
+		context = context + " · " + sysinfo.Detail
 	} else {
-		subtitle = m.spinner.View() + " Loading..."
+		context = context + " · " + m.spinner.View() + " Loading..."
 	}
 
 	// Header
-	b.WriteString(print.RenderHeader("j status", subtitle, m.width))
+	b.WriteString(print.RenderHeader("j status", context, m.width))
 
 	// Tab bar
 	b.WriteString(m.renderTabBar(m.width))

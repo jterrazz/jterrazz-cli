@@ -32,7 +32,7 @@ func installLockAfterLogin() error {
 		return fmt.Errorf("missing %s — expected the openclaw lock-after-login script", lockAfterLoginScript)
 	}
 
-	print.Header("install lock-after-login", "")
+	print.Header("install lock-after-login", machineContext())
 	print.Category("Before")
 	dumpLockAfterLoginState()
 	print.Empty()
@@ -96,7 +96,7 @@ func uninstallLockAfterLogin() error {
 	if err := os.Remove(lockAfterLoginPlist); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	print.Header("uninstall lock-after-login", "")
+	print.Header("uninstall lock-after-login", machineContext())
 	print.Success("Removed " + lockAfterLoginPlist)
 	print.Category("After")
 	dumpLockAfterLoginState()

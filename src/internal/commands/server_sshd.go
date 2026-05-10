@@ -17,7 +17,7 @@ func installSshd() error {
 		return err
 	}
 
-	print.Header("install sshd", "")
+	print.Header("install sshd", machineContext())
 	print.Category("Before")
 	dumpSshdState()
 	print.Empty()
@@ -61,7 +61,7 @@ func uninstallSshd() error {
 		return err
 	}
 
-	print.Header("uninstall sshd", "")
+	print.Header("uninstall sshd", machineContext())
 	print.Category("Before")
 	dumpSshdState()
 	print.Empty()

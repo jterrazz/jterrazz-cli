@@ -32,7 +32,7 @@ func installPower() error {
 		return err
 	}
 
-	print.Header("install power", "")
+	print.Header("install power", machineContext())
 	print.Category("Before")
 	dumpPmset()
 	print.Empty()
@@ -63,7 +63,7 @@ func uninstallPower() error {
 		return err
 	}
 
-	print.Header("uninstall power", "")
+	print.Header("uninstall power", machineContext())
 	print.Category("Before")
 	dumpPmset()
 	print.Empty()
