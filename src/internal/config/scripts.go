@@ -22,6 +22,7 @@ const (
 	ScriptCategorySecurity ScriptCategory = "Security"
 	ScriptCategoryEditor   ScriptCategory = "Editor"
 	ScriptCategorySystem   ScriptCategory = "System"
+	ScriptCategoryHomelab  ScriptCategory = "Homelab"
 )
 
 // Script represents a setup/configuration task
@@ -31,12 +32,21 @@ type Script struct {
 	Description string
 	Category    ScriptCategory
 
+	// Role - if set, the script only applies to machines registered with that
+	// role. Items with no Role apply to every machine. Used to gate homelab-only
+	// configuration from the TUI on a dev box.
+	Role Role
+
 	// Check - verify if already configured (optional)
 	// If nil, script is "run-once" with no checkable state
 	CheckFn func() CheckResult
 
-	// Run - execute the script
+	// Run - execute the script (also acts as "enable" for toggleable items)
 	RunFn func() error
+
+	// DisableFn - if set, the item is toggleable. When already configured, the
+	// TUI runs DisableFn instead of RunFn.
+	DisableFn func() error
 
 	// ExecArgs - when set, the script runs via tea.ExecProcess (suspends TUI)
 	// Use for interactive commands that need full terminal control
@@ -49,6 +59,12 @@ type Script struct {
 
 	// Dependencies
 	RequiresTool string // Tool that must be installed first (e.g., "openjdk")
+}
+
+// MatchesRole reports whether the script applies to the given machine role.
+// Scripts with no Role match every role.
+func (s Script) MatchesRole(role Role) bool {
+	return s.Role == "" || s.Role == role
 }
 
 // checkFileExists returns a CheckFn that reports installed if path exists.
