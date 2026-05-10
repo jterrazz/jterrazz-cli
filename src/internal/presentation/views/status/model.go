@@ -198,7 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.viewport.GotoTop()
 				}
 			}
-		case "1", "2", "3", "4", "5":
+		case "1", "2", "3", "4":
 			idx := int(msg.String()[0] - '1')
 			if idx < len(TabLabels) {
 				m.activeTab = idx

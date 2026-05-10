@@ -21,10 +21,14 @@ const minColumnWidth = 44
 
 // TabLabels enumerates the j status tabs in display order. Index in this
 // slice maps to Model.activeTab.
-var TabLabels = []string{"Activity", "System", "Workspace", "Config", "Software"}
+var TabLabels = []string{"System", "Workspace", "Config", "Software"}
 
 // renderContent renders the active tab's content. Section dividers are gone —
 // the tab bar above the viewport now plays that role.
+//
+// The "System" tab merges live activity (sparklines, top processes) with the
+// static system view (network, Tailscale, health) — they're conceptually
+// the same dashboard ("how is this machine doing right now?").
 func (m Model) renderContent() string {
 	w := m.width
 	if w < minColumnWidth {
@@ -35,14 +39,12 @@ func (m Model) renderContent() string {
 
 	switch m.activeTab {
 	case 0:
-		return m.renderActivity(sections, w)
+		return m.renderActivity(sections, w) + "\n" + m.renderEnvironment(sections, w)
 	case 1:
-		return m.renderEnvironment(sections, w)
-	case 2:
 		return m.renderWorkspace(sections, w)
-	case 3:
+	case 2:
 		return m.renderConfig(sections, w)
-	case 4:
+	case 3:
 		return m.renderTools(sections, w)
 	}
 	return ""
