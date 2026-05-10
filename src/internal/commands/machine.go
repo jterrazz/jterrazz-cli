@@ -34,9 +34,6 @@ type machineCheck struct {
 	Detail string
 }
 
-var machineUnlockHost string
-var machineUnlockUser string
-
 var machineCmd = &cobra.Command{
 	Use:   "machine",
 	Short: "Manage and inspect this machine and its services",
@@ -54,20 +51,24 @@ var machineStatusCmd = &cobra.Command{
 }
 
 var machineUnlockCmd = &cobra.Command{
-	Use:   "unlock",
+	Use:   "unlock <alias>",
 	Short: "Unlock a FileVault-protected homelab Mac over preboot SSH",
-	Run:   func(cmd *cobra.Command, args []string) { runMachineUnlock() },
+	Long: `Open an interactive SSH session in pre-boot mode to enter the FileVault
+unlock password. The endpoint comes from the registry (see j machine list).
+
+Pre-boot SSH advertises a different host key than the running OS and only
+accepts password auth — no authorized_keys exist before FileVault unlock.`,
+	Args: cobra.ExactArgs(1),
+	Run:  func(cmd *cobra.Command, args []string) { runMachineUnlock(args[0]) },
 }
 
 func init() {
-	machineUnlockCmd.Flags().StringVar(&machineUnlockHost, "host", "192.168.1.106", "target Mac host or IP")
-	machineUnlockCmd.Flags().StringVar(&machineUnlockUser, "user", "jterrazz.agent", "FileVault-enabled macOS user")
 	machineCmd.AddCommand(machineStatusCmd, machineUnlockCmd)
 	rootCmd.AddCommand(machineCmd)
 }
 
-func runMachineUnlock() {
-	target := machineUnlockUser + "@" + machineUnlockHost
+func runMachineUnlock(alias string) {
+	target := resolveRemoteSSH(alias)
 	// Preboot SSH advertises a different host key than the running OS, and
 	// password auth is the only acceptable method (no authorized_keys before FV).
 	cmd := exec.Command("ssh",
@@ -80,6 +81,24 @@ func runMachineUnlock() {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	_ = cmd.Run() // a disconnect after the password is the success path
+}
+
+// resolveRemoteSSH looks up the alias in the registry and returns its ssh
+// endpoint (user@host). Exits with an error if the alias is unknown, has no
+// SSH endpoint (it's a local-only machine), or is the alias marked as self.
+func resolveRemoteSSH(alias string) string {
+	selfAlias, _, _ := config.SelfMachine()
+	if alias == selfAlias {
+		failOn(fmt.Errorf("%q is this machine — refusing to act on self", alias))
+	}
+	m, ok := config.GetMachine(alias)
+	if !ok {
+		failOn(fmt.Errorf("machine %q not found in registry — see `j machine list`", alias))
+	}
+	if m.SSH == "" {
+		failOn(fmt.Errorf("machine %q has no ssh endpoint configured", alias))
+	}
+	return m.SSH
 }
 
 // machineSelfRole returns the role of the current machine according to the

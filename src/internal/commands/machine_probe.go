@@ -11,43 +11,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	machineProbeTarget      string
-	machineProbeGatewayPort int
-)
+var machineProbeGatewayPort int
 
 const defaultGatewayPort = 18789
 
 var machineProbeCmd = &cobra.Command{
-	Use:   "probe",
-	Short: "Probe a remote homelab Mac (ping, ssh, gateway port, console owner)",
-	Long: strings.TrimSpace(`Quick health probe of a remote homelab Mac.
+	Use:   "probe <alias>",
+	Short: "Probe a remote machine (ping, ssh, gateway port, console owner)",
+	Long: strings.TrimSpace(`Quick health probe of a remote machine, looked up via the registry.
 
 Checks: ICMP reachability, SSH (BatchMode), the OpenClaw gateway port, and the
-console owner reported by stat -f %Su /dev/console. Useful right after `+"`j machine restart`"+`
+console owner reported by stat -f %Su /dev/console. Useful right after ` + "`j machine restart`" + `
 to confirm auto-login succeeded and lock-after-login fired.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachineProbe() },
+	Args: cobra.ExactArgs(1),
+	Run:  func(cmd *cobra.Command, args []string) { runMachineProbe(args[0]) },
 }
 
 func init() {
-	machineProbeCmd.Flags().StringVar(&machineProbeTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
 	machineProbeCmd.Flags().IntVar(&machineProbeGatewayPort, "gateway-port", defaultGatewayPortFromEnv(), "OpenClaw gateway TCP port to probe")
 	machineCmd.AddCommand(machineProbeCmd)
 }
 
-func runMachineProbe() {
-	target := machineProbeTarget
-	if target == "" {
-		target = "mac-mini"
-	}
+func runMachineProbe(alias string) {
+	target := resolveRemoteSSH(alias)
 
 	ip := resolveSSHHostname(target)
 	if ip == "" {
-		ip = target
+		// fall back to the host part of user@host so the gateway-port probe still works.
+		if at := strings.Index(target, "@"); at > 0 && at < len(target)-1 {
+			ip = target[at+1:]
+		} else {
+			ip = target
+		}
 	}
 
 	print.SectionDivider("MACHINE PROBE")
-	print.Linef("Target: %s → %s", target, ip)
+	print.Linef("Target: %s → %s", alias, ip)
 
 	if exec.Command("ping", "-c", "1", "-W", "1000", ip).Run() == nil {
 		print.Row(true, "ping", ip)
@@ -63,7 +62,7 @@ func runMachineProbe() {
 	if sshErr == nil {
 		print.Row(true, "ssh", "BatchMode auth ok")
 	} else {
-		print.Row(false, "ssh", "auth failed (or pre-boot — try `j machine unlock`)")
+		print.Row(false, "ssh", "auth failed (or pre-boot — try `j machine unlock "+alias+"`)")
 	}
 
 	if dialPort(ip, machineProbeGatewayPort, 2*time.Second) {

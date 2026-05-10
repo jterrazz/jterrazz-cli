@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"net"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -12,13 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	machineRestartTarget    string
-	machineRestartConfirmed bool
-)
+var machineRestartConfirmed bool
 
 var machineRestartCmd = &cobra.Command{
-	Use:   "restart",
+	Use:   "restart <alias>",
 	Short: "Software-reboot a remote homelab Mac (FileVault-aware authrestart)",
 	Long: strings.TrimSpace(`Issue a FileVault-aware software reboot of the homelab Mac via SSH.
 
@@ -26,29 +22,26 @@ The remote runs ` + "`sudo fdesetup authrestart -delayminutes 0`" + ` which capt
 FileVault unlock token in memory; the next boot skips FV and auto-login lands the
 agent session ~60s later.
 
-Requires --yes (or interactive confirmation) — this is a destructive remote action.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachineRestart() },
+Requires --yes — this is a destructive remote action.`),
+	Args: cobra.ExactArgs(1),
+	Run:  func(cmd *cobra.Command, args []string) { runMachineRestart(args[0]) },
 }
 
 func init() {
-	machineRestartCmd.Flags().StringVar(&machineRestartTarget, "host", defaultRemoteHost(), "ssh target (host alias or user@host)")
 	machineRestartCmd.Flags().BoolVarP(&machineRestartConfirmed, "yes", "y", false, "skip the interactive confirmation prompt")
 	machineCmd.AddCommand(machineRestartCmd)
 }
 
-func runMachineRestart() {
-	target := machineRestartTarget
-	if target == "" {
-		target = "mac-mini"
-	}
+func runMachineRestart(alias string) {
+	target := resolveRemoteSSH(alias)
 
 	print.SectionDivider("MACHINE RESTART")
-	print.Linef("Target: %s", target)
+	print.Linef("Target: %s (%s)", alias, target)
 	print.Dim("Will issue: sudo fdesetup authrestart -delayminutes 0")
 	print.Empty()
 
 	if !machineRestartConfirmed {
-		failOn(fmt.Errorf("refusing to reboot without --yes; re-run with `j machine restart --yes`"))
+		failOn(fmt.Errorf("refusing to reboot without --yes; re-run with `j machine restart %s --yes`", alias))
 	}
 
 	cmd := exec.Command("ssh", target, "sudo fdesetup authrestart -delayminutes 0")
@@ -62,7 +55,7 @@ func runMachineRestart() {
 	}
 
 	ip := resolveSSHHostname(target)
-	print.Linef("Waiting for %s to come back…", target)
+	print.Linef("Waiting for %s to come back…", alias)
 	if ip != "" {
 		waitForPing(ip, 60)
 	}
@@ -70,14 +63,7 @@ func runMachineRestart() {
 		print.Success("SSH ready after restart")
 		return
 	}
-	failOn(fmt.Errorf("SSH did not come back within budget — check `j machine probe`"))
-}
-
-func defaultRemoteHost() string {
-	if v := strings.TrimSpace(os.Getenv("MAC_HOST")); v != "" {
-		return v
-	}
-	return "mac-mini"
+	failOn(fmt.Errorf("SSH did not come back within budget — check `j machine probe %s`", alias))
 }
 
 func resolveSSHHostname(target string) string {
