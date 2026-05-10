@@ -9,16 +9,34 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
+	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
+)
+
+// TabLabels enumerates the j config tabs in display order. Index in this
+// slice maps to Model.tabs.Active.
+var TabLabels = []string{"Configuration", "Skills", "Remote"}
+
+// Tab indices, kept as named constants so view code reads cleanly.
+const (
+	tabConfiguration = 0
+	tabSkills        = 1
+	tabRemote        = 2
 )
 
 // Model is the bubbletea model backing `j config`.
 //
-// State machine:
-//   - sections: ordered, role-filtered groups of scripts
-//   - cursor: which section + item is highlighted
-//   - expanded: per-script id, is the inline detail panel open?
-//   - busy / lastResult: action lifecycle
+// Hosts three tabs:
+//   - Configuration: install/uninstall items (sections + cursor + modal)
+//   - Skills: install/uninstall AI agent skills
+//   - Remote: configure Tailscale endpoint
+//
+// Per-tab state lives as named fields on the Model rather than a sum type,
+// so each tab's render and update functions read directly from what they
+// need without unwrapping.
 type Model struct {
+	tabs components.Tabs
+
+	// ── Configuration tab ────────────────────────────────────────────
 	sections []Section
 	cursor   cursorPos
 	expanded map[string]bool
@@ -29,6 +47,7 @@ type Model struct {
 	// install/uninstall completes — never during navigation.
 	checkCache map[string]config.CheckResult
 
+	// ── Cross-tab ────────────────────────────────────────────────────
 	selfAlias string
 	selfRole  config.Role
 
@@ -69,6 +88,7 @@ func NewModel() Model {
 
 	sections := buildSections(role)
 	model := Model{
+		tabs:       components.Tabs{Labels: TabLabels, Active: tabConfiguration},
 		sections:   sections,
 		cursor:     firstItemCursor(sections),
 		expanded:   map[string]bool{},

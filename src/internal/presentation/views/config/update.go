@@ -14,8 +14,10 @@ import (
 type keymap struct {
 	Up        key.Binding
 	Down      key.Binding
-	Toggle    key.Binding // tab — collapse/expand current section
-	Details   key.Binding // space — toggle inline detail panel
+	TabPrev   key.Binding // ← / shift+tab — previous tab
+	TabNext   key.Binding // → — next tab
+	Toggle    key.Binding // tab — collapse/expand current section (Configuration tab)
+	Details   key.Binding // space — toggle inline detail panel (Configuration tab)
 	Install   key.Binding // i
 	Uninstall key.Binding // u
 	Quit      key.Binding // q / esc
@@ -25,6 +27,8 @@ type keymap struct {
 var keys = keymap{
 	Up:        key.NewBinding(key.WithKeys("up", "k")),
 	Down:      key.NewBinding(key.WithKeys("down", "j")),
+	TabPrev:   key.NewBinding(key.WithKeys("left", "shift+tab")),
+	TabNext:   key.NewBinding(key.WithKeys("right")),
 	Toggle:    key.NewBinding(key.WithKeys("tab")),
 	Details:   key.NewBinding(key.WithKeys(" ")),
 	Install:   key.NewBinding(key.WithKeys("i")),
@@ -103,9 +107,30 @@ func (m Model) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Number keys 1..N jump to a tab directly. Handled before the per-tab
+	// keys so a stray "1" never lands on a list item.
+	if s := msg.String(); len(s) == 1 && s[0] >= '1' && s[0] <= '9' {
+		idx := int(s[0] - '1')
+		if idx < len(TabLabels) {
+			m.tabs.SetActive(idx)
+			m.lastResult = ""
+			return m, nil
+		}
+	}
+
 	switch {
 	case key.Matches(msg, keys.Quit):
 		return m, tea.Quit
+
+	case key.Matches(msg, keys.TabPrev):
+		m.tabs.Prev()
+		m.lastResult = ""
+		return m, nil
+
+	case key.Matches(msg, keys.TabNext):
+		m.tabs.Next()
+		m.lastResult = ""
+		return m, nil
 
 	case key.Matches(msg, keys.Up):
 		m.moveCursorUp()

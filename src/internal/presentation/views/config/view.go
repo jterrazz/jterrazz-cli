@@ -23,13 +23,28 @@ func (m Model) View() string {
 	}
 	var b strings.Builder
 	b.WriteString(m.renderHeader("j config"))
-	b.WriteString(m.renderBody())
+	b.WriteString(m.tabs.Render(m.contentWidth()))
+	b.WriteString("\n\n")
+	b.WriteString(m.renderTabBody())
 	b.WriteString("\n")
 	b.WriteString(m.renderDivider())
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter())
 	b.WriteString("\n")
 	return b.String()
+}
+
+// renderTabBody dispatches to the active tab's renderer.
+func (m Model) renderTabBody() string {
+	switch m.tabs.Active {
+	case tabConfiguration:
+		return m.renderBody()
+	case tabSkills:
+		return contextStyle.Render(" Skills tab — coming soon.")
+	case tabRemote:
+		return contextStyle.Render(" Remote tab — coming soon.")
+	}
+	return ""
 }
 
 // renderModal renders the input-collection form. We frame huh's output with
