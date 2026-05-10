@@ -370,11 +370,11 @@ func RegisterServerActions(a ServerActions) {
 		},
 		Script{
 			Name:        "sshd",
-			Description: "Remote Login (sshd) + FileVault pre-boot SSH unlock group",
+			Description: "macOS Remote Login (sshd)",
 			Category:    ScriptCategoryServer,
 			Role:        RoleServer,
 			Interactive: true,
-			Help:        "Enables Remote Login (sshd) and adds jterrazz.agent to the access_ssh group. The FileVault remote-unlock toggle still has to be flipped manually in System Settings → Privacy & Security.",
+			Help:        "Toggles the System Settings → General → Sharing → Remote Login switch via `systemsetup -setremotelogin`.",
 			CheckFn:     a.SshdCheck,
 			InstallFn:   NoInputs(a.SshdInstall),
 			UninstallFn: a.SshdUninstall,
