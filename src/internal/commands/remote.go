@@ -4,26 +4,18 @@ import (
 	"fmt"
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
-	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/remote"
 	"github.com/spf13/cobra"
 )
 
 var remoteCmd = &cobra.Command{
 	Use:   "remote",
 	Short: "Manage remote access connectivity",
+	Long: "Connect / disconnect / inspect the Tailscale endpoint for remote\n" +
+		"access. To configure the endpoint itself (mode, auth, hostname, secret),\n" +
+		"use `j config` and switch to the Remote tab.",
 	Run: func(cmd *cobra.Command, args []string) {
 		runRemoteStatus()
-	},
-}
-
-var remoteConfigCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Interactive remote access configuration",
-	Run: func(cmd *cobra.Command, args []string) {
-		remoteview.InitRemoteState()
-		components.RunOrExit(remoteview.RemoteConfig())
 	},
 }
 
@@ -81,7 +73,6 @@ var remoteStatusCmd = &cobra.Command{
 }
 
 func init() {
-	remoteCmd.AddCommand(remoteConfigCmd)
 	remoteCmd.AddCommand(remoteUpCmd)
 	remoteCmd.AddCommand(remoteDownCmd)
 	remoteCmd.AddCommand(remoteStatusCmd)
