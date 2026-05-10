@@ -56,18 +56,20 @@ func scriptsForCurrentRole() []config.Script {
 	return out
 }
 
-// effectiveAction returns (fn, foundInstalled). If the script is currently
-// installed and has a UninstallFn, the disable action is returned. Otherwise the
-// install/enable action (InstallFn) is returned. Used both by the TUI and by the
-// non-interactive runScript callback so toggle behaviour is consistent.
-func effectiveAction(s *config.Script) (fn func() error, isToggleOff bool) {
+// effectiveAction returns (fn, isUninstall). If the script is currently
+// installed and has an UninstallFn, the uninstall action is returned. Otherwise
+// the install action is returned (wrapped to drop the InputValues parameter).
+func effectiveAction(s *config.Script) (fn func() error, isUninstall bool) {
 	if s == nil {
 		return nil, false
 	}
 	if s.UninstallFn != nil && s.CheckFn != nil && s.CheckFn().Installed {
 		return s.UninstallFn, true
 	}
-	return s.InstallFn, false
+	if s.InstallFn == nil {
+		return nil, false
+	}
+	return func() error { return s.InstallFn(config.InputValues{}) }, false
 }
 
 // BuildItems builds the setup menu items

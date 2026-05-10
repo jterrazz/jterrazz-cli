@@ -17,6 +17,9 @@ const (
 
 // View implements tea.Model.
 func (m Model) View() string {
+	if m.modalActive() {
+		return m.renderModal()
+	}
 	var b strings.Builder
 	b.WriteString(m.renderHeader())
 	b.WriteString("\n")
@@ -27,6 +30,29 @@ func (m Model) View() string {
 	b.WriteString(m.renderDivider())
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter())
+	b.WriteString("\n")
+	return b.String()
+}
+
+// renderModal renders the input-collection form. We frame huh's output with
+// the same header so the user keeps context, and add a footer hint.
+func (m Model) renderModal() string {
+	var b strings.Builder
+	b.WriteString(m.renderHeader())
+	b.WriteString("\n")
+	b.WriteString(m.renderDivider())
+	b.WriteString("\n")
+	b.WriteString(titleStyle.Render(" install " + m.formScript.Name))
+	b.WriteString("\n\n")
+	if m.formScript.Help != "" {
+		b.WriteString(detailTextStyle.Render(" " + wrapText(m.formScript.Help, m.contentWidth()-2)))
+		b.WriteString("\n\n")
+	}
+	b.WriteString(m.form.View())
+	b.WriteString("\n")
+	b.WriteString(m.renderDivider())
+	b.WriteString("\n")
+	b.WriteString(footerLabelStyle.Render(" enter confirm   esc cancel"))
 	b.WriteString("\n")
 	return b.String()
 }

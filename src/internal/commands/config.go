@@ -23,8 +23,13 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 }
 
-// runScript runs a script by name. For toggleable items (UninstallFn != nil),
-// runs UninstallFn when the item is currently installed, InstallFn otherwise.
+// runScript runs a script by name from the legacy setup view. The new j config
+// view dispatches actions directly via configview, but this callback is still
+// used by setup/skills/remote sub-views until they're migrated.
+//
+// For toggleable items (UninstallFn != nil), runs UninstallFn when the item is
+// currently installed, InstallFn otherwise. Inputs are not collected here —
+// scripts that need them must be run from the new j config TUI.
 func runScript(name string) {
 	script := config.GetScriptByName(name)
 	if script == nil {
@@ -32,19 +37,18 @@ func runScript(name string) {
 		return
 	}
 
-	fn := script.InstallFn
-	verb := "install"
 	if script.UninstallFn != nil && script.CheckFn != nil && script.CheckFn().Installed {
-		fn = script.UninstallFn
-		verb = "uninstall"
+		if err := script.UninstallFn(); err != nil {
+			print.Error("Failed to uninstall " + name + ": " + err.Error())
+		}
+		return
 	}
-	if fn == nil {
+	if script.InstallFn == nil {
 		print.Error("No runner for script: " + name)
 		return
 	}
-
-	if err := fn(); err != nil {
-		print.Error("Failed to " + verb + " " + name + ": " + err.Error())
+	if err := script.InstallFn(config.InputValues{}); err != nil {
+		print.Error("Failed to install " + name + ": " + err.Error())
 	}
 }
 

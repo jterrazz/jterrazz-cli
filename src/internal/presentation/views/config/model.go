@@ -6,6 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 )
 
@@ -31,6 +32,13 @@ type Model struct {
 
 	lastResult string
 	lastErr    error
+
+	// Modal state — non-nil while collecting Inputs for a script before
+	// invoking InstallFn. The bindings slice mirrors formScript.Inputs and
+	// holds the live values huh writes into.
+	form         *huh.Form
+	formScript   *config.Script
+	formBindings []*string
 }
 
 // cursorPos identifies the highlighted item: section index + item index

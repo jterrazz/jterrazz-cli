@@ -46,8 +46,11 @@ type Script struct {
 	// If nil, script is "run-once" with no checkable state
 	CheckFn func() CheckResult
 
-	// InstallFn - perform the installation/configuration action.
-	InstallFn func() error
+	// InstallFn - perform the installation/configuration action. Receives the
+	// values collected via the Inputs modal (empty map if Inputs is nil).
+	// For scripts that don't need inputs, wrap a plain func() error with
+	// config.NoInputs(...) at assignment time.
+	InstallFn func(InputValues) error
 
 	// UninstallFn - inverse of InstallFn. When set, the item is toggleable in
 	// the TUI: pressing 'u' on an installed item runs this instead of InstallFn.
@@ -69,6 +72,24 @@ type Script struct {
 
 	// Dependencies
 	RequiresTool string // Tool that must be installed first (e.g., "openjdk")
+}
+
+// InputValues maps Input.Name to the user-provided value for that input.
+// Always non-nil when passed to InstallFn (use Get to read safely).
+type InputValues map[string]string
+
+// Get returns the value for `name` or "" if missing.
+func (v InputValues) Get(name string) string {
+	if v == nil {
+		return ""
+	}
+	return v[name]
+}
+
+// NoInputs wraps a plain `func() error` so it satisfies the Script.InstallFn
+// signature. Convenience for the common case where a script needs no inputs.
+func NoInputs(fn func() error) func(InputValues) error {
+	return func(_ InputValues) error { return fn() }
 }
 
 // InputKind enumerates the supported modal input field types.
@@ -120,7 +141,7 @@ var Scripts = []Script{
 		Category:    ScriptCategoryTerminal,
 		Help:        "Creates ~/.hushlogin so macOS suppresses the 'Last login:' banner each time you open a new terminal.",
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
-		InstallFn:   runHushlogin,
+		InstallFn:   NoInputs(runHushlogin),
 	},
 	{
 		Name:         "ghostty",
@@ -131,7 +152,7 @@ var Scripts = []Script{
 		CheckFn: checkFileExists(
 			os.Getenv("HOME")+"/.config/ghostty/config",
 			"~/.config/ghostty/config"),
-		InstallFn: runGhosttyConfig,
+		InstallFn: NoInputs(runGhosttyConfig),
 	},
 	{
 		Name:         "tmux",
@@ -140,7 +161,7 @@ var Scripts = []Script{
 		RequiresTool: "tmux",
 		Help:         "Installs ~/.tmux.conf with sensible bindings; reloads any running tmux session.",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
-		InstallFn:    runTmuxConfig,
+		InstallFn:    NoInputs(runTmuxConfig),
 	},
 
 	// ==========================================================================
@@ -163,7 +184,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		InstallFn: runGPGSetup,
+		InstallFn: NoInputs(runGPGSetup),
 	},
 	{
 		Name:        "ssh",
@@ -172,7 +193,7 @@ var Scripts = []Script{
 		Interactive: true,
 		Help:        "Generates an ed25519 SSH key, stores its passphrase in macOS Keychain, and prints the public key for you to paste into GitHub.",
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
-		InstallFn:   runSSHSetup,
+		InstallFn:   NoInputs(runSSHSetup),
 	},
 	{
 		Name:         "gh",
@@ -199,7 +220,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		InstallFn: runSpotlightExclude,
+		InstallFn: NoInputs(runSpotlightExclude),
 	},
 	{
 		Name:        "dns",
@@ -212,7 +233,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		InstallFn: runDNSEncrypt,
+		InstallFn: NoInputs(runDNSEncrypt),
 	},
 	// ==========================================================================
 	// Editor
@@ -224,7 +245,7 @@ var Scripts = []Script{
 		RequiresTool: "zed",
 		Help:         "Installs ~/.config/zed/settings.json from the repo (themes, keymaps, font).",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
-		InstallFn:    runZedConfig,
+		InstallFn:    NoInputs(runZedConfig),
 	},
 
 	// ==========================================================================
@@ -243,7 +264,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		InstallFn: runJavaHome,
+		InstallFn: NoInputs(runJavaHome),
 	},
 	{
 		Name:         "nvm",
@@ -257,21 +278,21 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		InstallFn: runNvmSetup,
+		InstallFn: NoInputs(runNvmSetup),
 	},
 	{
 		Name:        "dock-reset",
 		Description: "Reset dock to system defaults",
 		Category:    ScriptCategorySystem,
 		Help:        "`defaults delete com.apple.dock` + killall Dock — restores the macOS default dock layout.",
-		InstallFn:   runDockReset,
+		InstallFn:   NoInputs(runDockReset),
 	},
 	{
 		Name:        "dock-spacer",
 		Description: "Add a small spacer tile to the dock",
 		Category:    ScriptCategorySystem,
 		Help:        "Adds a small spacer tile (transparent gap) to the Dock for visual grouping.",
-		InstallFn:   runDockSpacer,
+		InstallFn:   NoInputs(runDockSpacer),
 	},
 
 	// ==========================================================================
@@ -287,18 +308,18 @@ var Scripts = []Script{
 // these in via RegisterHomelabActions so this file (and the config package as a
 // whole) stays free of macOS-specific imports.
 type HomelabActions struct {
-	AutologinInstall      func() error
-	AutologinUninstall    func() error
-	AutologinCheck        func() CheckResult
-	PowerInstall          func() error
-	PowerUninstall        func() error
-	PowerCheck            func() CheckResult
+	AutologinInstall        func(InputValues) error
+	AutologinUninstall      func() error
+	AutologinCheck          func() CheckResult
+	PowerInstall            func() error
+	PowerUninstall          func() error
+	PowerCheck              func() CheckResult
 	LockAfterLoginInstall   func() error
 	LockAfterLoginUninstall func() error
 	LockAfterLoginCheck     func() CheckResult
-	SshdInstall           func() error
-	SshdUninstall         func() error
-	SshdCheck             func() CheckResult
+	SshdInstall             func() error
+	SshdUninstall           func() error
+	SshdCheck               func() CheckResult
 }
 
 // RegisterHomelabActions appends the four homelab Scripts using the provided
@@ -312,6 +333,15 @@ func RegisterHomelabActions(a HomelabActions) {
 			Role:        RoleHomelab,
 			Interactive: true,
 			Help:        "Bypasses loginwindow at boot/restart so an agent can drive the Aqua session without anyone at the keyboard. Writes /etc/kcpassword via the public XOR cipher (the password is never logged).",
+			Inputs: []ScriptInput{
+				{
+					Name:    "password",
+					Label:   "Agent password for jterrazz.agent",
+					Help:    "Encoded into /etc/kcpassword via the public XOR cipher. Never logged or stored elsewhere.",
+					Kind:    InputPassword,
+					Default: os.Getenv("AGENT_PASSWORD"),
+				},
+			},
 			CheckFn:     a.AutologinCheck,
 			InstallFn:   a.AutologinInstall,
 			UninstallFn: a.AutologinUninstall,
@@ -324,7 +354,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Interactive: true,
 			Help:        "Applies a homelab pmset profile: never sleep, restart on power return, no hibernate, wake on LAN. Uninstall resets pmset to macOS defaults.",
 			CheckFn:     a.PowerCheck,
-			InstallFn:   a.PowerInstall,
+			InstallFn:   NoInputs(a.PowerInstall),
 			UninstallFn: a.PowerUninstall,
 		},
 		Script{
@@ -335,7 +365,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Interactive: true,
 			Help:        "Per-user LaunchAgent that locks the screen ~20s after auto-login. Keeps the GUI session alive (so agent runtimes work) while the screen stays physically protected.",
 			CheckFn:     a.LockAfterLoginCheck,
-			InstallFn:   a.LockAfterLoginInstall,
+			InstallFn:   NoInputs(a.LockAfterLoginInstall),
 			UninstallFn: a.LockAfterLoginUninstall,
 		},
 		Script{
@@ -346,7 +376,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Interactive: true,
 			Help:        "Enables Remote Login (sshd) and adds jterrazz.agent to the access_ssh group. The FileVault remote-unlock toggle still has to be flipped manually in System Settings → Privacy & Security.",
 			CheckFn:     a.SshdCheck,
-			InstallFn:   a.SshdInstall,
+			InstallFn:   NoInputs(a.SshdInstall),
 			UninstallFn: a.SshdUninstall,
 		},
 	)

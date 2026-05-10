@@ -5,6 +5,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 )
 
 // keymap groups every key the model reacts to so the view can render hints
@@ -50,19 +52,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.rebuildSections()
 		return m, nil
+	}
 
-	case tea.KeyMsg:
+	// Modal owns key handling while it's up. Route everything to huh, then
+	// react to its terminal state (completed → run install, aborted → close).
+	if m.modalActive() {
+		return m.updateModal(msg)
+	}
+
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		// Ctrl+C always quits, even when busy.
-		if key.Matches(msg, keys.Cancel) {
+		if key.Matches(keyMsg, keys.Cancel) {
 			return m, tea.Quit
 		}
 		// Block other keys while an action is running.
 		if m.busy {
 			return m, nil
 		}
-		return m.handleKey(msg)
+		return m.handleKey(keyMsg)
 	}
 	return m, nil
+}
+
+// updateModal forwards the message to the huh form and reacts when the form
+// reaches a terminal state. On completion, packages collected values and
+// fires the install action. On abort, just closes the modal.
+func (m Model) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
+	form, cmd := m.form.Update(msg)
+	if f, ok := form.(*huh.Form); ok {
+		m.form = f
+	}
+
+	switch m.form.State {
+	case huh.StateCompleted:
+		s := m.formScript
+		values := m.collectModalValues()
+		m.closeModal()
+		m.busy = true
+		m.busyAction = "install " + s.Name
+		m.lastResult = ""
+		m.lastErr = nil
+		install := s.InstallFn // capture before we lose the form context
+		return m, runAction(s.Name, "install", func() error { return install(values) })
+
+	case huh.StateAborted:
+		m.closeModal()
+		return m, nil
+	}
+	return m, cmd
 }
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -99,7 +136,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // startInstall fires the install action for the current item, if applicable.
-// Refuses if already installed or no InstallFn.
+// Refuses if already installed or no InstallFn. When the script declares
+// Inputs, opens the modal first to collect them; the install runs after the
+// form completes (see updateModal).
 func (m Model) startInstall() (tea.Model, tea.Cmd) {
 	s := m.currentScript()
 	if s == nil || s.InstallFn == nil {
@@ -108,11 +147,16 @@ func (m Model) startInstall() (tea.Model, tea.Cmd) {
 	if isInstalled(s) {
 		return m, nil
 	}
+	if len(s.Inputs) > 0 {
+		m.buildModal(s)
+		return m, m.form.Init()
+	}
 	m.busy = true
 	m.busyAction = "install " + s.Name
 	m.lastResult = ""
 	m.lastErr = nil
-	return m, runAction(s.Name, "install", s.InstallFn)
+	install := s.InstallFn
+	return m, runAction(s.Name, "install", func() error { return install(config.InputValues{}) })
 }
 
 // startUninstall fires the uninstall action for the current item, if applicable.

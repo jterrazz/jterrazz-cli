@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -27,8 +26,10 @@ func statusAutologin() error {
 }
 
 // installAutologin enables FileVault-aware GUI auto-login for the agent user.
-// Returns an error instead of os.Exit so it can be embedded in a TUI.
-func installAutologin() error {
+// The agent password comes from the InputValues collected via the j config
+// modal (key: "password"). Falls back to the AGENT_PASSWORD env var if the
+// caller bypasses the modal (e.g. during testing).
+func installAutologin(values config.InputValues) error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -43,16 +44,9 @@ func installAutologin() error {
 		return fmt.Errorf("user %s does not exist on this Mac", autologinTargetUser)
 	}
 
-	password := os.Getenv(autologinPasswordEnv)
+	password := values.Get("password")
 	if password == "" {
-		// Apple's sysadminctl on recent macOS silently no-ops when invoked under sudo
-		// without -password, so we MUST get a password before calling it. Prompt on
-		// /dev/tty with stty no-echo so the password never appears in scrollback or env.
-		pw, err := promptPasswordTTY(fmt.Sprintf("Agent password for %s (sets /etc/kcpassword): ", autologinTargetUser))
-		if err != nil {
-			return fmt.Errorf("read password: %w (or pre-set %s in the env via `sudo --preserve-env=%s ...`)", err, autologinPasswordEnv, autologinPasswordEnv)
-		}
-		password = pw
+		password = os.Getenv(autologinPasswordEnv)
 	}
 	if password == "" {
 		return fmt.Errorf("empty password — refusing to set /etc/kcpassword with an empty value")
@@ -170,42 +164,6 @@ func dumpAutologinState() {
 	if owner, err := runQuiet("/usr/bin/stat", "-f", "%Su", "/dev/console"); err == nil {
 		print.Linef("  /dev/console owner: %s", oneLineOrDash(owner))
 	}
-}
-
-// promptPasswordTTY reads a password from /dev/tty without echo. We deliberately
-// don't use os.Stdin: in this CLI, sudo+ssh pipelines often have stdin replaced by
-// a pipe, but /dev/tty is the controlling terminal and stays interactive.
-//
-// Implementation note: shelling out to stty avoids adding a third-party dep just
-// to set raw termios for one prompt. On panic/early exit, the deferred stty echo
-// restores the terminal state.
-func promptPasswordTTY(prompt string) (string, error) {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return "", fmt.Errorf("open /dev/tty: %w", err)
-	}
-	defer tty.Close()
-
-	stty := func(args ...string) error {
-		c := exec.Command("/bin/stty", args...)
-		c.Stdin = tty
-		return c.Run()
-	}
-	if err := stty("-echo"); err != nil {
-		return "", fmt.Errorf("stty -echo: %w", err)
-	}
-	defer stty("echo") //nolint:errcheck // best-effort restore
-
-	if _, err := fmt.Fprint(tty, prompt); err != nil {
-		return "", err
-	}
-	reader := bufio.NewReader(tty)
-	line, err := reader.ReadString('\n')
-	fmt.Fprintln(tty)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimRight(line, "\r\n"), nil
 }
 
 func oneLineOrDash(s string) string {
