@@ -20,7 +20,7 @@ func statusAutologin() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
-	print.SectionDivider("AUTOLOGIN STATUS")
+	print.Header("autologin status", "")
 	dumpAutologinState()
 	return nil
 }
@@ -52,7 +52,7 @@ func installAutologin(values config.InputValues) error {
 		return fmt.Errorf("empty password — refusing to set /etc/kcpassword with an empty value")
 	}
 
-	print.SectionDivider("AUTOLOGIN ENABLE")
+	print.Header("install autologin", "")
 	print.Category("Before")
 	dumpAutologinState()
 	print.Empty()
@@ -114,7 +114,7 @@ func uninstallAutologin() error {
 		return err
 	}
 
-	print.SectionDivider("AUTOLOGIN DISABLE")
+	print.Header("uninstall autologin", "")
 	_ = run("/usr/sbin/sysadminctl", "-autologin", "off")
 	_ = os.Remove("/etc/kcpassword")
 	for _, key := range []string{"autoLoginUser", "oneTimeAutoLogin", "autoLoginUserScreenLocked"} {

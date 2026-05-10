@@ -15,10 +15,6 @@ var (
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorAccentText)
-
 	contextStyle = lipgloss.NewStyle().
 			Foreground(colorMuted)
 

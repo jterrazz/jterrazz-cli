@@ -46,7 +46,7 @@ func init() {
 }
 
 func listAvailableTools() {
-	print.SectionDivider("Available Tools")
+	print.Header("j install", "")
 
 	// Check all tools in parallel
 	results := make(map[string]config.CheckResult, len(config.Tools))

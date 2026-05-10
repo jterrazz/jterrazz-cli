@@ -85,7 +85,7 @@ func init() {
 }
 
 func listUpgradeOptions() {
-	print.SectionDivider("Available Upgrade Targets")
+	print.Header("j upgrade", "")
 
 	for _, pm := range config.PackageManagers {
 		available := config.CommandExists(pm.RequiresCmd)

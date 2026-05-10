@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
+	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 )
 
 // State icons for each item row.
@@ -21,10 +22,7 @@ func (m Model) View() string {
 		return m.renderModal()
 	}
 	var b strings.Builder
-	b.WriteString(m.renderHeader())
-	b.WriteString("\n")
-	b.WriteString(m.renderDivider())
-	b.WriteString("\n")
+	b.WriteString(m.renderHeader("j config"))
 	b.WriteString(m.renderBody())
 	b.WriteString("\n")
 	b.WriteString(m.renderDivider())
@@ -35,15 +33,11 @@ func (m Model) View() string {
 }
 
 // renderModal renders the input-collection form. We frame huh's output with
-// the same header so the user keeps context, and add a footer hint.
+// the standard header (re-titled to "install <script>") so the user keeps
+// context, and add a footer hint.
 func (m Model) renderModal() string {
 	var b strings.Builder
-	b.WriteString(m.renderHeader())
-	b.WriteString("\n")
-	b.WriteString(m.renderDivider())
-	b.WriteString("\n")
-	b.WriteString(titleStyle.Render(" install " + m.formScript.Name))
-	b.WriteString("\n\n")
+	b.WriteString(m.renderHeader("install " + m.formScript.Name))
 	if m.formScript.Help != "" {
 		b.WriteString(detailTextStyle.Render(" " + wrapText(m.formScript.Help, m.contentWidth()-2)))
 		b.WriteString("\n\n")
@@ -57,10 +51,11 @@ func (m Model) renderModal() string {
 	return b.String()
 }
 
-func (m Model) renderHeader() string {
-	left := titleStyle.Render("j config")
-	right := contextStyle.Render(fmt.Sprintf("self: %s · %s", m.selfAlias, m.roleLabel()))
-	return joinLeftRight(left, right, m.contentWidth())
+// renderHeader builds the canonical j config header. The right-side context
+// shows which machine the TUI is operating on (alias + role).
+func (m Model) renderHeader(command string) string {
+	context := fmt.Sprintf("self: %s · %s", m.selfAlias, m.roleLabel())
+	return print.RenderHeader(command, context, m.contentWidth())
 }
 
 func (m Model) roleLabel() string {
@@ -224,18 +219,6 @@ func (m Model) contentWidth() int {
 		return 80
 	}
 	return m.width
-}
-
-// joinLeftRight stretches content so left is at the start and right is at
-// the far edge of the row, separated by spaces.
-func joinLeftRight(left, right string, totalWidth int) string {
-	leftW := lipgloss.Width(left)
-	rightW := lipgloss.Width(right)
-	gap := totalWidth - leftW - rightW
-	if gap < 1 {
-		gap = 1
-	}
-	return left + strings.Repeat(" ", gap) + right
 }
 
 // padToWidth right-pads text with spaces so the visible width matches `w`.

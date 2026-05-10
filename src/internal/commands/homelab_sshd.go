@@ -17,7 +17,7 @@ func installSshd() error {
 		return err
 	}
 
-	print.SectionDivider("SSHD ENABLE")
+	print.Header("install sshd", "")
 	print.Category("Before")
 	dumpSshdState()
 	print.Empty()
@@ -61,7 +61,7 @@ func uninstallSshd() error {
 		return err
 	}
 
-	print.SectionDivider("SSHD DISABLE")
+	print.Header("uninstall sshd", "")
 	print.Category("Before")
 	dumpSshdState()
 	print.Empty()

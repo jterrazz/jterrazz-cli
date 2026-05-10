@@ -45,8 +45,7 @@ func runMachineProbe(alias string) {
 		}
 	}
 
-	print.SectionDivider("MACHINE PROBE")
-	print.Linef("Target: %s → %s", alias, ip)
+	print.Header("j machine probe "+alias, "→ "+ip)
 
 	if exec.Command("ping", "-c", "1", "-W", "1000", ip).Run() == nil {
 		print.Row(true, "ping", ip)

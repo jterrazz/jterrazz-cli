@@ -63,7 +63,7 @@ func init() {
 }
 
 func listCleanItems() {
-	print.SectionDivider("Available Clean Items")
+	print.Header("j clean", "")
 
 	for _, c := range config.Cleanables {
 		available := c.RequiresCmd == "" || config.CommandExists(c.RequiresCmd)

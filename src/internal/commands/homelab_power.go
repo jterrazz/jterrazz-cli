@@ -32,7 +32,7 @@ func installPower() error {
 		return err
 	}
 
-	print.SectionDivider("POWER ENABLE")
+	print.Header("install power", "")
 	print.Category("Before")
 	dumpPmset()
 	print.Empty()
@@ -63,7 +63,7 @@ func uninstallPower() error {
 		return err
 	}
 
-	print.SectionDivider("POWER DISABLE")
+	print.Header("uninstall power", "")
 	print.Category("Before")
 	dumpPmset()
 	print.Empty()

@@ -35,9 +35,8 @@ func init() {
 func runMachineRestart(alias string) {
 	target := resolveRemoteSSH(alias)
 
-	print.SectionDivider("MACHINE RESTART")
-	print.Linef("Target: %s (%s)", alias, target)
-	print.Dim("Will issue: sudo fdesetup authrestart -delayminutes 0")
+	print.Header("j machine restart "+alias, target)
+	print.Dim(" Will issue: sudo fdesetup authrestart -delayminutes 0")
 	print.Empty()
 
 	if !machineRestartConfirmed {

@@ -33,10 +33,10 @@ func (p *Page) SetSize(width, height int) {
 	p.Height = height
 }
 
-// ContentHeight returns the available height for content
-// Subtracts space for: header (3) + help (1) + message (1) = 5 lines
+// ContentHeight returns the available height for content.
+// Subtracts space for: command header (4) + help (1) + message (1) = 6 lines.
 func (p *Page) ContentHeight() int {
-	h := p.Height - PageHeaderHeight(false) - 2 // header + help + message
+	h := p.Height - CommandHeaderHeight - 2
 	if h < 1 {
 		h = 1
 	}
@@ -52,7 +52,7 @@ func (p *Page) Render() string {
 	if len(p.Breadcrumbs) > 0 {
 		title = p.Breadcrumbs[len(p.Breadcrumbs)-1]
 	}
-	b.WriteString(PageHeader(title, ""))
+	b.WriteString(CommandHeader(title, "", p.Width))
 
 	// Main content
 	if p.Content != "" {

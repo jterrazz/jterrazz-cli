@@ -42,13 +42,34 @@ func Installing(name string) {
 }
 
 // =============================================================================
-// Section Print Functions
+// Header — canonical command header used by every j subcommand and TUI
 // =============================================================================
 
-// SectionDivider prints a section divider matching the status TUI style
-func SectionDivider(title string) {
-	fmt.Println()
-	fmt.Println(components.SectionHeader(title, termWidth()))
+// Header prints the canonical command header to stdout. Use for CLI commands
+// (non-TUI). For TUIs that need to embed the header in their View string,
+// use RenderHeader.
+//
+// command:  command path or action label, e.g. "j install", "install autologin".
+//           Always lowercase, never decorated.
+// context:  optional right-aligned info, e.g. "self: mac-mini · homelab".
+//           Pass "" to omit (no placeholder rendered).
+//
+// Output:
+//
+//	(blank line)
+//	 j install                                       darwin · arm64
+//	 ──────────────────────────────────────────────────────────────────
+//	(blank line)
+func Header(command, context string) {
+	fmt.Print(RenderHeader(command, context, termWidth()))
+}
+
+// RenderHeader returns the canonical header as a string, sized to the given
+// width. Use from inside bubbletea View() functions or anywhere you need the
+// rendered string instead of stdout output. Thin wrapper over
+// components.CommandHeader.
+func RenderHeader(command, context string, width int) string {
+	return components.CommandHeader(command, context, width)
 }
 
 // Category prints a category header (dimmed)

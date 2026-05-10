@@ -13,6 +13,7 @@ import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/domain/status"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
+	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/theme"
 )
 
@@ -210,7 +211,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		headerHeight := components.PageHeaderHeight(true) // title + subtitle
+		headerHeight := components.CommandHeaderHeight
 		tabBarHeight := 2                                 // tab strip + blank line
 		footerHeight := 1
 
@@ -361,7 +362,7 @@ func (m Model) View() string {
 	}
 
 	// Header
-	b.WriteString(components.PageHeader("STATUS", subtitle))
+	b.WriteString(print.RenderHeader("j status", subtitle, m.width))
 
 	// Tab bar
 	b.WriteString(m.renderTabBar(m.width))
