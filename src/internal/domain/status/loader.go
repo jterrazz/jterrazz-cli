@@ -222,16 +222,26 @@ func (l *Loader) buildItems() {
 	}
 
 	// ── Config ────────────────────────────────────────────────────────
-	// Config scripts (mirror j config items)
+	// Config scripts (mirror j config items). Filter by self.role and
+	// group by ScriptCategory so the section reads as "Terminal", "Security",
+	// "Editor", "System", "Homelab" sub-blocks.
+	role := selfMachineRole()
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
 			continue
+		}
+		if !script.MatchesRole(role) {
+			continue
+		}
+		subsection := string(script.Category)
+		if subsection == "" {
+			subsection = "Config"
 		}
 		l.addItem(Item{
 			ID:          "config-" + script.Name,
 			Kind:        KindConfig,
 			Section:     "Config",
-			SubSection:  "Config",
+			SubSection:  subsection,
 			Name:        script.Name,
 			Description: script.Description,
 		})
@@ -240,7 +250,7 @@ func (l *Loader) buildItems() {
 		ID:          "config-remote",
 		Kind:        KindConfig,
 		Section:     "Config",
-		SubSection:  "Config",
+		SubSection:  "Network",
 		Name:        "remote",
 		Description: "Configure remote SSH access",
 	})
@@ -281,6 +291,16 @@ func (l *Loader) addItem(item Item) {
 	l.items = append(l.items, item)
 }
 
+// selfMachineRole returns the role of the current machine according to the
+// registry, or empty string if no self alias is set. Used to filter Config
+// items so homelab-only entries don't appear on a dev box.
+func selfMachineRole() config.Role {
+	if _, m, ok := config.SelfMachine(); ok {
+		return m.Role
+	}
+	return ""
+}
+
 // Start launches all checks in parallel (call only once)
 func (l *Loader) Start() {
 	l.mu.Lock()
@@ -301,9 +321,14 @@ func (l *Loader) Start() {
 		l.updates <- UpdateMsg{ID: item.ID, Item: item}
 	}()
 
-	// Config checks
+	// Config checks — same role filter as the registration loop above so
+	// the placeholders and the actual results stay in sync.
+	role := selfMachineRole()
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
+			continue
+		}
+		if !script.MatchesRole(role) {
 			continue
 		}
 		wg.Add(1)

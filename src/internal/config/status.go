@@ -22,9 +22,13 @@ var StatusSections = []StatusSection{
 	{Title: "Workspace", SubTitle: "Git", RenderFn: nil},
 	{Title: "Workspace", SubTitle: "Disk", RenderFn: nil},
 
-	// Config — config checks (flat)
-	{Title: "Config", SubTitle: "Config", RenderFn: nil},
+	// Config — per-Script-Category subsections + Identity + Network (j remote)
+	{Title: "Config", SubTitle: "Terminal", RenderFn: nil},
 	{Title: "Config", SubTitle: "Security", RenderFn: nil},
+	{Title: "Config", SubTitle: "Editor", RenderFn: nil},
+	{Title: "Config", SubTitle: "System", RenderFn: nil},
+	{Title: "Config", SubTitle: "Homelab", RenderFn: nil},
+	{Title: "Config", SubTitle: "Network", RenderFn: nil},
 	{Title: "Config", SubTitle: "Identity", RenderFn: nil},
 
 	// Tools — inventory (cards)

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/domain/status"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/theme"
@@ -681,29 +682,39 @@ func (m Model) renderConfig(sections sectionMap, w int) string {
 		return rows
 	}
 
-	// Config box
-	configRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Config"))
+	// One box per ScriptCategory subsection that has loaded items, in
+	// canonical order. Network (the j remote alias) and Identity are
+	// special — they don't come from a Script Category.
+	categoryOrder := []string{
+		string(config.ScriptCategoryTerminal),
+		string(config.ScriptCategorySecurity),
+		string(config.ScriptCategoryEditor),
+		string(config.ScriptCategorySystem),
+		string(config.ScriptCategoryHomelab),
+		"Network",
+	}
 
-	// Security box (from Environment/System — KindSecurity items)
+	var boxes []string
+	for _, sub := range categoryOrder {
+		rows := buildCheckRows(m.getSubsectionItems(sections, "Config", sub))
+		if len(rows) > 0 {
+			boxes = append(boxes, components.SubsectionBox(sub, rows, colWidth))
+		}
+	}
+
+	// Security box (from Environment/Health — KindSecurity items, system-level)
 	var secItems []status.Item
 	for _, item := range m.getSubsectionItems(sections, "Environment", "Health") {
 		if item.Kind == status.KindSecurity {
 			secItems = append(secItems, item)
 		}
 	}
-	secRows := buildCheckRows(secItems)
-
-	// Identity box
-	idRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Identity"))
-
-	var boxes []string
-	if len(configRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Config", configRows, colWidth))
-	}
-	if len(secRows) > 0 {
+	if secRows := buildCheckRows(secItems); len(secRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Security", secRows, colWidth))
 	}
-	if len(idRows) > 0 {
+
+	// Identity box
+	if idRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Identity")); len(idRows) > 0 {
 		boxes = append(boxes, components.SubsectionBox("Identity", idRows, colWidth))
 	}
 
