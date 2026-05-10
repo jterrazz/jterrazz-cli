@@ -53,7 +53,7 @@ const CommandHeaderHeight = 4
 //	(blank line)
 //
 // command:  command path or action label, e.g. "j install" or "install autologin"
-// context:  optional right-aligned info, e.g. "self: mac-mini · homelab"
+// context:  optional right-aligned info, e.g. "self: mac-mini · server"
 // width:    target terminal width
 func CommandHeader(command, context string, width int) string {
 	if width < 20 {

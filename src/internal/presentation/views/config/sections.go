@@ -22,7 +22,7 @@ var sectionOrder = []config.ScriptCategory{
 	config.ScriptCategorySecurity,
 	config.ScriptCategoryEditor,
 	config.ScriptCategorySystem,
-	config.ScriptCategoryHomelab,
+	config.ScriptCategoryServer,
 }
 
 // buildSections groups config.Scripts by Category, applies role filtering,

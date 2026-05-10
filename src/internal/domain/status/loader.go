@@ -224,7 +224,7 @@ func (l *Loader) buildItems() {
 	// ── Config ────────────────────────────────────────────────────────
 	// Config scripts (mirror j config items). Filter by self.role and
 	// group by ScriptCategory so the section reads as "Terminal", "Security",
-	// "Editor", "System", "Homelab" sub-blocks.
+	// "Editor", "System", "Server" sub-blocks.
 	role := selfMachineRole()
 	for _, script := range config.Scripts {
 		if script.CheckFn == nil {
@@ -293,7 +293,7 @@ func (l *Loader) addItem(item Item) {
 
 // selfMachineRole returns the role of the current machine according to the
 // registry, or empty string if no self alias is set. Used to filter Config
-// items so homelab-only entries don't appear on a dev box.
+// items so server-only entries don't appear on a client box.
 func selfMachineRole() config.Role {
 	if _, m, ok := config.SelfMachine(); ok {
 		return m.Role

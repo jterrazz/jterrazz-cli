@@ -37,7 +37,7 @@ func TestWriteSSHAliasNewFile(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	err := WriteSSHAlias("mac-mini", Machine{
-		Role: RoleHomelab,
+		Role: RoleServer,
 		SSH:  "agent@192.168.1.106",
 	})
 	if err != nil {
@@ -66,10 +66,10 @@ func TestWriteSSHAliasReplacesExistingBlock(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleHomelab, SSH: "old@1.1.1.1"}); err != nil {
+	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleServer, SSH: "old@1.1.1.1"}); err != nil {
 		t.Fatalf("first write error = %v", err)
 	}
-	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleHomelab, SSH: "new@2.2.2.2"}); err != nil {
+	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleServer, SSH: "new@2.2.2.2"}); err != nil {
 		t.Fatalf("second write error = %v", err)
 	}
 	data, _ := os.ReadFile(filepath.Join(home, ".ssh", "config"))
@@ -89,10 +89,10 @@ func TestWriteSSHAliasAppendsAlongside(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleHomelab, SSH: "a@h1"}); err != nil {
+	if err := WriteSSHAlias("mac-mini", Machine{Role: RoleServer, SSH: "a@h1"}); err != nil {
 		t.Fatalf("first write error = %v", err)
 	}
-	if err := WriteSSHAlias("worker", Machine{Role: RoleHomelab, SSH: "b@h2"}); err != nil {
+	if err := WriteSSHAlias("worker", Machine{Role: RoleServer, SSH: "b@h2"}); err != nil {
 		t.Fatalf("second write error = %v", err)
 	}
 	data, _ := os.ReadFile(filepath.Join(home, ".ssh", "config"))
@@ -114,7 +114,7 @@ func TestWriteSSHAliasRefusesForeignHost(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := WriteSSHAlias("mac-mini", Machine{Role: RoleHomelab, SSH: "agent@1.2.3.4"})
+	err := WriteSSHAlias("mac-mini", Machine{Role: RoleServer, SSH: "agent@1.2.3.4"})
 	if err == nil {
 		t.Fatal("expected conflict error, got nil")
 	}
@@ -129,7 +129,7 @@ func TestWriteSSHAliasRefusesForeignHost(t *testing.T) {
 
 func TestWriteSSHAliasRejectsBadEndpoint(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := WriteSSHAlias("a", Machine{Role: RoleHomelab, SSH: "no-at-sign"}); err == nil {
+	if err := WriteSSHAlias("a", Machine{Role: RoleServer, SSH: "no-at-sign"}); err == nil {
 		t.Fatal("expected error on malformed endpoint")
 	}
 }
@@ -138,8 +138,8 @@ func TestRemoveSSHAlias(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	_ = WriteSSHAlias("mac-mini", Machine{Role: RoleHomelab, SSH: "a@h"})
-	_ = WriteSSHAlias("worker", Machine{Role: RoleHomelab, SSH: "b@h2"})
+	_ = WriteSSHAlias("mac-mini", Machine{Role: RoleServer, SSH: "a@h"})
+	_ = WriteSSHAlias("worker", Machine{Role: RoleServer, SSH: "b@h2"})
 	if err := RemoveSSHAlias("mac-mini"); err != nil {
 		t.Fatalf("RemoveSSHAlias error = %v", err)
 	}
@@ -165,7 +165,7 @@ func TestWriteSSHAliasCustomIdentity(t *testing.T) {
 	t.Setenv("HOME", home)
 
 	err := WriteSSHAlias("mac-mini", Machine{
-		Role:     RoleHomelab,
+		Role:     RoleServer,
 		SSH:      "agent@h",
 		Identity: "~/.ssh/custom_key",
 	})

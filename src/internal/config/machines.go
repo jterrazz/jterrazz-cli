@@ -7,13 +7,13 @@ import (
 )
 
 // Role is the function a machine plays in the user's setup. The role drives which
-// status checks run, which `j config` Homelab items are visible, and how the
+// status checks run, which `j config` Server items are visible, and how the
 // TUI groups things.
 type Role string
 
 const (
-	RoleDev     Role = "dev"
-	RoleHomelab Role = "homelab"
+	RoleClient Role = "client"
+	RoleServer Role = "server"
 )
 
 // Machine is a single entry in the registry. A machine is "local" (the one this
@@ -30,9 +30,9 @@ func (m Machine) IsLocal() bool { return strings.TrimSpace(m.SSH) == "" }
 // Validate checks that the role is known and, if SSH is set, that it looks like user@host.
 func (m Machine) Validate() error {
 	switch m.Role {
-	case RoleDev, RoleHomelab:
+	case RoleClient, RoleServer:
 	default:
-		return fmt.Errorf("invalid role %q (expected dev or homelab)", m.Role)
+		return fmt.Errorf("invalid role %q (expected client or server)", m.Role)
 	}
 	if m.SSH != "" && !strings.Contains(m.SSH, "@") {
 		return fmt.Errorf("ssh endpoint %q must be user@host", m.SSH)

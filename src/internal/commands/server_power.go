@@ -8,7 +8,7 @@ import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
 )
 
-// powerHardenSettings is the canonical homelab power policy: never sleep, restart
+// powerHardenSettings is the canonical server power policy: never sleep, restart
 // on power return, no hibernate-to-disk (faster recovery), display can sleep,
 // wake on network access. Order is fixed so pmset's diagnostics are deterministic.
 //

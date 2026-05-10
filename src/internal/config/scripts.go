@@ -22,7 +22,7 @@ const (
 	ScriptCategorySecurity ScriptCategory = "Security"
 	ScriptCategoryEditor   ScriptCategory = "Editor"
 	ScriptCategorySystem   ScriptCategory = "System"
-	ScriptCategoryHomelab  ScriptCategory = "Homelab"
+	ScriptCategoryServer   ScriptCategory = "Server"
 )
 
 // Script represents a setup/configuration task
@@ -38,8 +38,8 @@ type Script struct {
 	Help string
 
 	// Role - if set, the script only applies to machines registered with that
-	// role. Items with no Role apply to every machine. Used to gate homelab-only
-	// configuration from the TUI on a dev box.
+	// role. Items with no Role apply to every machine. Used to gate server-only
+	// configuration from the TUI on a client box.
 	Role Role
 
 	// Check - verify if already configured (optional)
@@ -296,18 +296,18 @@ var Scripts = []Script{
 	},
 
 	// ==========================================================================
-	// Homelab — only visible on machines registered with role=homelab
+	// Server — only visible on machines registered with role=server
 	// ==========================================================================
 	// CheckFn / InstallFn / UninstallFn live in src/internal/commands/machine_config_*.go
-	// and are wired up via config.RegisterHomelabActions at init time so this file
+	// and are wired up via config.RegisterServerActions at init time so this file
 	// stays free of macOS-specific logic.
 }
 
-// HomelabActions is the set of install/uninstall/check functions provided by the
-// commands package for the four homelab-only scripts. The commands package wires
-// these in via RegisterHomelabActions so this file (and the config package as a
+// ServerActions is the set of install/uninstall/check functions provided by the
+// commands package for the four server-only scripts. The commands package wires
+// these in via RegisterServerActions so this file (and the config package as a
 // whole) stays free of macOS-specific imports.
-type HomelabActions struct {
+type ServerActions struct {
 	AutologinInstall        func(InputValues) error
 	AutologinUninstall      func() error
 	AutologinCheck          func() CheckResult
@@ -322,15 +322,15 @@ type HomelabActions struct {
 	SshdCheck               func() CheckResult
 }
 
-// RegisterHomelabActions appends the four homelab Scripts using the provided
+// RegisterServerActions appends the four server Scripts using the provided
 // action set. Called from the commands package init().
-func RegisterHomelabActions(a HomelabActions) {
+func RegisterServerActions(a ServerActions) {
 	Scripts = append(Scripts,
 		Script{
 			Name:        "autologin",
 			Description: "GUI auto-login for jterrazz.agent (FileVault-aware)",
-			Category:    ScriptCategoryHomelab,
-			Role:        RoleHomelab,
+			Category:    ScriptCategoryServer,
+			Role:        RoleServer,
 			Interactive: true,
 			Help:        "Bypasses loginwindow at boot/restart so an agent can drive the Aqua session without anyone at the keyboard. Writes /etc/kcpassword via the public XOR cipher (the password is never logged).",
 			Inputs: []ScriptInput{
@@ -349,10 +349,10 @@ func RegisterHomelabActions(a HomelabActions) {
 		Script{
 			Name:        "power",
 			Description: "Always-on power policy (no sleep, autorestart, wake)",
-			Category:    ScriptCategoryHomelab,
-			Role:        RoleHomelab,
+			Category:    ScriptCategoryServer,
+			Role:        RoleServer,
 			Interactive: true,
-			Help:        "Applies a homelab pmset profile: never sleep, restart on power return, no hibernate, wake on LAN. Uninstall resets pmset to macOS defaults.",
+			Help:        "Applies a server pmset profile: never sleep, restart on power return, no hibernate, wake on LAN. Uninstall resets pmset to macOS defaults.",
 			CheckFn:     a.PowerCheck,
 			InstallFn:   NoInputs(a.PowerInstall),
 			UninstallFn: a.PowerUninstall,
@@ -360,8 +360,8 @@ func RegisterHomelabActions(a HomelabActions) {
 		Script{
 			Name:        "lock-after-login",
 			Description: "LaunchAgent that locks the screen ~20s after auto-login",
-			Category:    ScriptCategoryHomelab,
-			Role:        RoleHomelab,
+			Category:    ScriptCategoryServer,
+			Role:        RoleServer,
 			Interactive: true,
 			Help:        "Per-user LaunchAgent that locks the screen ~20s after auto-login. Keeps the GUI session alive (so agent runtimes work) while the screen stays physically protected.",
 			CheckFn:     a.LockAfterLoginCheck,
@@ -371,8 +371,8 @@ func RegisterHomelabActions(a HomelabActions) {
 		Script{
 			Name:        "sshd",
 			Description: "Remote Login (sshd) + FileVault pre-boot SSH unlock group",
-			Category:    ScriptCategoryHomelab,
-			Role:        RoleHomelab,
+			Category:    ScriptCategoryServer,
+			Role:        RoleServer,
 			Interactive: true,
 			Help:        "Enables Remote Login (sshd) and adds jterrazz.agent to the access_ssh group. The FileVault remote-unlock toggle still has to be flipped manually in System Settings → Privacy & Security.",
 			CheckFn:     a.SshdCheck,

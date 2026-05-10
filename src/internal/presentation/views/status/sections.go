@@ -707,7 +707,7 @@ func (m Model) renderConfig(sections sectionMap, w int) string {
 		string(config.ScriptCategorySecurity),
 		string(config.ScriptCategoryEditor),
 		string(config.ScriptCategorySystem),
-		string(config.ScriptCategoryHomelab),
+		string(config.ScriptCategoryServer),
 		"Network",
 	}
 

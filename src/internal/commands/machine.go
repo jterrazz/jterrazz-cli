@@ -49,7 +49,7 @@ var machineStatusCmd = &cobra.Command{
 
 var machineUnlockCmd = &cobra.Command{
 	Use:   "unlock <alias>",
-	Short: "Unlock a FileVault-protected homelab Mac over preboot SSH",
+	Short: "Unlock a FileVault-protected server Mac over preboot SSH",
 	Long: `Open an interactive SSH session in pre-boot mode to enter the FileVault
 unlock password. The endpoint comes from the registry (see j machine list).
 
@@ -99,12 +99,12 @@ func resolveRemoteSSH(alias string) string {
 }
 
 // machineSelfRole returns the role of the current machine according to the
-// registry, defaulting to RoleDev when no machine has been declared as self.
+// registry, defaulting to RoleClient when no machine has been declared as self.
 func machineSelfRole() config.Role {
 	if _, m, ok := config.SelfMachine(); ok {
 		return m.Role
 	}
-	return config.RoleDev
+	return config.RoleClient
 }
 
 func runMachineStatus() {
@@ -120,9 +120,9 @@ func runMachineStatus() {
 	}
 	print.Empty()
 
-	// Application state. Only meaningful on homelab — a dev box doesn't
+	// Application state. Only meaningful on server — a client box doesn't
 	// host these services so the rows would always read "not running".
-	if role == config.RoleHomelab {
+	if role == config.RoleServer {
 		print.Category("Services")
 		for _, check := range serviceStateChecks() {
 			printMachineCheck(check)

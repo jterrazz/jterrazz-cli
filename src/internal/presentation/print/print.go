@@ -51,7 +51,7 @@ func Installing(name string) {
 //
 // command:  command path or action label, e.g. "j install", "install autologin".
 //           Always lowercase, never decorated.
-// context:  optional right-aligned info, e.g. "self: mac-mini · homelab".
+// context:  optional right-aligned info, e.g. "self: mac-mini · server".
 //           Pass "" to omit (no placeholder rendered).
 //
 // Output:

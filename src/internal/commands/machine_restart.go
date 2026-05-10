@@ -15,8 +15,8 @@ var machineRestartConfirmed bool
 
 var machineRestartCmd = &cobra.Command{
 	Use:   "restart <alias>",
-	Short: "Software-reboot a remote homelab Mac (FileVault-aware authrestart)",
-	Long: strings.TrimSpace(`Issue a FileVault-aware software reboot of the homelab Mac via SSH.
+	Short: "Software-reboot a remote server Mac (FileVault-aware authrestart)",
+	Long: strings.TrimSpace(`Issue a FileVault-aware software reboot of the server Mac via SSH.
 
 The remote runs ` + "`sudo fdesetup authrestart -delayminutes 0`" + ` which captures the
 FileVault unlock token in memory; the next boot skips FV and auto-login lands the

@@ -145,14 +145,14 @@ func TestStartInstallNoOpWithoutInstallFn(t *testing.T) {
 func TestStartInstallOpensModalWhenInputsDeclared(t *testing.T) {
 	scripts := []*config.Script{{
 		Name:      "needs-password",
-		Category:  config.ScriptCategoryHomelab,
+		Category:  config.ScriptCategoryServer,
 		CheckFn:   checkInstalled(false),
 		InstallFn: noop,
 		Inputs: []config.ScriptInput{
 			{Name: "password", Label: "Password", Kind: config.InputPassword},
 		},
 	}}
-	m := modelWithSections([]Section{{Category: config.ScriptCategoryHomelab, Scripts: scripts}})
+	m := modelWithSections([]Section{{Category: config.ScriptCategoryServer, Scripts: scripts}})
 	updated, cmd := m.startInstall()
 	if cmd == nil {
 		t.Fatal("expected modal init cmd")

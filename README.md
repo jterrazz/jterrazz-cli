@@ -31,24 +31,24 @@ Full-screen TUI dashboard, organised into 4 tabs (`←/→` to cycle, `1..4` to 
 
 - **System** — live CPU/Memory/GPU/Network sparklines, top processes, network, Tailscale peers, and system health (firewall, DNS, etc.)
 - **Workspace** — tracked git repos, Docker containers, project dependencies
-- **Config** — every `j config` item with its current state, grouped by category (Terminal / Security / Editor / System / Homelab / Network / Identity). Homelab subsection only shows on a homelab-registered machine.
+- **Config** — every `j config` item with its current state, grouped by category (Terminal / Security / Editor / System / Server / Network / Identity). Server subsection only shows on a server-registered machine.
 - **Software** — 100+ tracked tools with versions, by category
 
 Everything loads in parallel with a progress bar; the System tab's live readings refresh every second.
 
 ### `j machine`
 
-Manages a small registry of the machines you own — typically a dev box (your laptop) and one or more homelab servers — and runs status checks, remote actions, and homelab-only configuration.
+Manages a small registry of the machines you own — typically a client box (your laptop) and one or more servers — and runs status checks, remote actions, and server-only configuration.
 
 #### Registry
 
-Every machine has an alias, a role (`dev` or `homelab`), and an optional SSH endpoint. The registry lives in `~/.jterrazz/config.json` and is the single source of truth — adding a machine also writes a managed `Host` block in `~/.ssh/config`.
+Every machine has an alias, a role (`client` or `server`), and an optional SSH endpoint. The registry lives in `~/.jterrazz/config.json` and is the single source of truth — adding a machine also writes a managed `Host` block in `~/.ssh/config`.
 
 ```sh
 j machine init                                                    # Bootstrap THIS machine (interactive)
 j machine list                                                    # Table of registered machines (* marks self)
-j machine add mac-mini --role homelab --ssh agent@192.168.1.106   # Add a remote
-j machine add macbook  --role dev                                 # Add a local-only entry
+j machine add mac-mini --role server --ssh agent@192.168.1.106   # Add a remote
+j machine add macbook  --role client                                 # Add a local-only entry
 j machine remove mac-mini                                         # Refuses if alias is self
 ```
 
@@ -57,19 +57,19 @@ The role decides what `j machine status` reports and which items `j config` expo
 #### Inspect
 
 ```sh
-j machine status              # FileVault, SSH, plus services (homelab role only)
+j machine status              # FileVault, SSH, plus services (server role only)
 j machine probe <alias>       # ping + ssh + OpenClaw gateway port + console owner
 j machine restart <alias> -y  # FileVault-aware authrestart, waits for SSH to come back
 j machine unlock <alias>      # Pre-boot SSH session to enter the FileVault password
 ```
 
 `status` runs locally and adapts to the role:
-- **dev**: Machine state only — FileVault, SSH (port 22).
-- **homelab**: Machine state + Services — OpenClaw runtime, OpenClaw config, channel health (Slack/Telegram/BlueBubbles), OrbStack.
+- **client**: Machine state only — FileVault, SSH (port 22).
+- **server**: Machine state + Services — OpenClaw runtime, OpenClaw config, channel health (Slack/Telegram/BlueBubbles), OrbStack.
 
 `probe`/`restart`/`unlock` resolve the SSH endpoint from the registry. They refuse to act on the alias marked as self.
 
-To configure the local machine (terminal, security, editor, system, homelab services), use `j config`.
+To configure the local machine (terminal, security, editor, system, server services), use `j config`.
 
 ### `j install [tool...]`
 
@@ -102,7 +102,7 @@ j clean docker trash     # Clean specific items
 Interactive TUI for configuring the local machine. Sections are collapsible, items show their current state, and the footer always tells you which keys do what for the item under the cursor.
 
 ```
- j config                                                self: mac-mini · homelab
+ j config                                                self: mac-mini · server
  ──────────────────────────────────────────────────────────────────────────────
  ▾ Terminal               3/3
    ✓ ghostty
@@ -114,7 +114,7 @@ Interactive TUI for configuring the local machine. Sections are collapsible, ite
    ✓ zed
 
  ▸ System                 2/4
- ▾ Homelab                2/4
+ ▾ Server                2/4
    ✓ autologin
  ▶ ✗ power
    ✓ lock-after-login
@@ -123,13 +123,13 @@ Interactive TUI for configuring the local machine. Sections are collapsible, ite
  ▶ power |  i install   space details
 ```
 
-Categories (Homelab only appears when the current machine is registered as `homelab`):
+Categories (Server only appears when the current machine is registered as `server`):
 
 - **Terminal** — ghostty, tmux, hushlogin
 - **Security** — GPG commit signing, SSH keygen, GitHub CLI auth, encrypted DNS (Quad9), Spotlight exclusion
 - **Editor** — Zed config
 - **System** — JAVA_HOME, nvm, dock reset/spacer
-- **Homelab** — autologin, power policy, lock-after-login, sshd
+- **Server** — autologin, power policy, lock-after-login, sshd
 
 Keys:
 
@@ -215,8 +215,8 @@ Schema of `config.json`:
   "remote":    { "mode": "userspace", "auth_method": "oauth", ... },
   "self":      "macbook",
   "machines": {
-    "macbook":  { "role": "dev" },
-    "mac-mini": { "role": "homelab", "ssh": "agent@192.168.1.106" }
+    "macbook":  { "role": "client" },
+    "mac-mini": { "role": "server", "ssh": "agent@192.168.1.106" }
   }
 }
 ```

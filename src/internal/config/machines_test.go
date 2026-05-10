@@ -10,11 +10,11 @@ func TestMachineValidate(t *testing.T) {
 		input   Machine
 		wantErr bool
 	}{
-		{"local dev is valid", Machine{Role: RoleDev}, false},
-		{"remote homelab is valid", Machine{Role: RoleHomelab, SSH: "user@host"}, false},
-		{"unknown role is rejected", Machine{Role: "server"}, true},
+		{"local client is valid", Machine{Role: RoleClient}, false},
+		{"remote server is valid", Machine{Role: RoleServer, SSH: "user@host"}, false},
+		{"unknown role is rejected", Machine{Role: "vps"}, true},
 		{"empty role is rejected", Machine{}, true},
-		{"ssh without @ is rejected", Machine{Role: RoleHomelab, SSH: "host"}, true},
+		{"ssh without @ is rejected", Machine{Role: RoleServer, SSH: "host"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -28,10 +28,10 @@ func TestMachineValidate(t *testing.T) {
 func TestAddListGetRemove(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := AddMachine("macbook", Machine{Role: RoleDev}); err != nil {
+	if err := AddMachine("macbook", Machine{Role: RoleClient}); err != nil {
 		t.Fatalf("AddMachine(macbook) error = %v", err)
 	}
-	if err := AddMachine("mac-mini", Machine{Role: RoleHomelab, SSH: "agent@192.168.1.106"}); err != nil {
+	if err := AddMachine("mac-mini", Machine{Role: RoleServer, SSH: "agent@192.168.1.106"}); err != nil {
 		t.Fatalf("AddMachine(mac-mini) error = %v", err)
 	}
 
@@ -62,10 +62,10 @@ func TestAddListGetRemove(t *testing.T) {
 func TestAddRefusesDuplicate(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := AddMachine("macbook", Machine{Role: RoleDev}); err != nil {
+	if err := AddMachine("macbook", Machine{Role: RoleClient}); err != nil {
 		t.Fatalf("first AddMachine error = %v", err)
 	}
-	if err := AddMachine("macbook", Machine{Role: RoleHomelab}); err == nil {
+	if err := AddMachine("macbook", Machine{Role: RoleServer}); err == nil {
 		t.Fatal("AddMachine of duplicate should fail, got nil")
 	}
 }
@@ -77,13 +77,13 @@ func TestSetSelfAndSelfMachine(t *testing.T) {
 		t.Fatal("SetSelf on unknown alias should fail, got nil")
 	}
 
-	_ = AddMachine("macbook", Machine{Role: RoleDev})
+	_ = AddMachine("macbook", Machine{Role: RoleClient})
 	if err := SetSelf("macbook"); err != nil {
 		t.Fatalf("SetSelf(macbook) error = %v", err)
 	}
 
 	alias, m, ok := SelfMachine()
-	if !ok || alias != "macbook" || m.Role != RoleDev {
+	if !ok || alias != "macbook" || m.Role != RoleClient {
 		t.Fatalf("SelfMachine() = (%q, %+v, %v)", alias, m, ok)
 	}
 }
@@ -91,7 +91,7 @@ func TestSetSelfAndSelfMachine(t *testing.T) {
 func TestRemoveSelfRefused(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	_ = AddMachine("macbook", Machine{Role: RoleDev})
+	_ = AddMachine("macbook", Machine{Role: RoleClient})
 	_ = SetSelf("macbook")
 
 	if err := RemoveMachine("macbook"); err == nil {
@@ -102,12 +102,12 @@ func TestRemoveSelfRefused(t *testing.T) {
 func TestUpdateMachine(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	if err := UpdateMachine("ghost", Machine{Role: RoleDev}); err == nil {
+	if err := UpdateMachine("ghost", Machine{Role: RoleClient}); err == nil {
 		t.Fatal("UpdateMachine on unknown alias should fail, got nil")
 	}
 
-	_ = AddMachine("mac-mini", Machine{Role: RoleHomelab, SSH: "old@host"})
-	if err := UpdateMachine("mac-mini", Machine{Role: RoleHomelab, SSH: "new@host"}); err != nil {
+	_ = AddMachine("mac-mini", Machine{Role: RoleServer, SSH: "old@host"})
+	if err := UpdateMachine("mac-mini", Machine{Role: RoleServer, SSH: "new@host"}); err != nil {
 		t.Fatalf("UpdateMachine error = %v", err)
 	}
 	got, _ := GetMachine("mac-mini")
@@ -117,10 +117,10 @@ func TestUpdateMachine(t *testing.T) {
 }
 
 func TestMachineIsLocal(t *testing.T) {
-	if !(Machine{Role: RoleDev}).IsLocal() {
-		t.Fatal("dev without SSH should be local")
+	if !(Machine{Role: RoleClient}).IsLocal() {
+		t.Fatal("client without SSH should be local")
 	}
-	if (Machine{Role: RoleHomelab, SSH: "u@h"}).IsLocal() {
+	if (Machine{Role: RoleServer, SSH: "u@h"}).IsLocal() {
 		t.Fatal("machine with SSH should not be local")
 	}
 }
@@ -128,7 +128,7 @@ func TestMachineIsLocal(t *testing.T) {
 func TestRoundTripPersistence(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	in := Machine{Role: RoleHomelab, SSH: "agent@192.168.1.106", Identity: "~/.ssh/id_ed25519"}
+	in := Machine{Role: RoleServer, SSH: "agent@192.168.1.106", Identity: "~/.ssh/id_ed25519"}
 	if err := AddMachine("mac-mini", in); err != nil {
 		t.Fatalf("AddMachine error = %v", err)
 	}

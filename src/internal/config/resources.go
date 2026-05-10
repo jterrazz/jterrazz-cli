@@ -653,7 +653,7 @@ func scanRepo(repoPath, relPath string) RepoInfo {
 //     containing directory name. Natural since organisations cluster repos
 //     under one folder.
 //
-// Git invocations run in parallel — without it, a homelab with 30+ repos
+// Git invocations run in parallel — without it, a server with 30+ repos
 // blocks the j status load for ~2 seconds.
 func ScanAllRepos() []ProjectGroup {
 	devDir := os.Getenv("HOME") + "/Developer"

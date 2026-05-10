@@ -15,8 +15,8 @@ func fixture() []config.Script {
 		{Name: "tmux", Category: config.ScriptCategoryTerminal, CheckFn: checkInstalled(true), InstallFn: noop},
 		{Name: "ghostty", Category: config.ScriptCategoryTerminal, CheckFn: checkInstalled(false), InstallFn: noop},
 		{Name: "zed", Category: config.ScriptCategoryEditor, CheckFn: checkInstalled(true), InstallFn: noop},
-		{Name: "autologin", Category: config.ScriptCategoryHomelab, Role: config.RoleHomelab, CheckFn: checkInstalled(false), InstallFn: noop, UninstallFn: noopErr},
-		{Name: "power", Category: config.ScriptCategoryHomelab, Role: config.RoleHomelab, CheckFn: checkInstalled(true), InstallFn: noop, UninstallFn: noopErr},
+		{Name: "autologin", Category: config.ScriptCategoryServer, Role: config.RoleServer, CheckFn: checkInstalled(false), InstallFn: noop, UninstallFn: noopErr},
+		{Name: "power", Category: config.ScriptCategoryServer, Role: config.RoleServer, CheckFn: checkInstalled(true), InstallFn: noop, UninstallFn: noopErr},
 		{Name: "no-category", Category: "", InstallFn: noop}, // dropped by buildSections
 	}
 }
@@ -29,37 +29,37 @@ func noop(_ config.InputValues) error { return nil }
 func noopErr() error                  { return nil }
 
 func TestBuildSectionsRoleFilterDev(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleDev)
+	sections := buildSectionsFrom(fixture(), config.RoleClient)
 	for _, s := range sections {
-		if s.Category == config.ScriptCategoryHomelab {
-			t.Errorf("Homelab section visible for dev role")
+		if s.Category == config.ScriptCategoryServer {
+			t.Errorf("Server section visible for client role")
 		}
 	}
 }
 
-func TestBuildSectionsRoleFilterHomelab(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleHomelab)
-	var foundHomelab bool
+func TestBuildSectionsRoleFilterServer(t *testing.T) {
+	sections := buildSectionsFrom(fixture(), config.RoleServer)
+	var foundServer bool
 	for _, s := range sections {
-		if s.Category == config.ScriptCategoryHomelab {
-			foundHomelab = true
+		if s.Category == config.ScriptCategoryServer {
+			foundServer = true
 			if len(s.Scripts) != 2 {
-				t.Errorf("Homelab section has %d scripts, want 2", len(s.Scripts))
+				t.Errorf("Server section has %d scripts, want 2", len(s.Scripts))
 			}
 		}
 	}
-	if !foundHomelab {
-		t.Error("Homelab section missing for homelab role")
+	if !foundServer {
+		t.Error("Server section missing for server role")
 	}
 }
 
 func TestBuildSectionsCanonicalOrder(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleHomelab)
+	sections := buildSectionsFrom(fixture(), config.RoleServer)
 	want := []config.ScriptCategory{
 		config.ScriptCategoryTerminal,
 		config.ScriptCategorySecurity,
 		config.ScriptCategoryEditor,
-		config.ScriptCategoryHomelab,
+		config.ScriptCategoryServer,
 	}
 	if len(sections) != len(want) {
 		t.Fatalf("got %d sections, want %d", len(sections), len(want))
@@ -72,7 +72,7 @@ func TestBuildSectionsCanonicalOrder(t *testing.T) {
 }
 
 func TestBuildSectionsItemsSortedByName(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleDev)
+	sections := buildSectionsFrom(fixture(), config.RoleClient)
 	for _, s := range sections {
 		for i := 1; i < len(s.Scripts); i++ {
 			if s.Scripts[i-1].Name > s.Scripts[i].Name {
@@ -84,7 +84,7 @@ func TestBuildSectionsItemsSortedByName(t *testing.T) {
 }
 
 func TestBuildSectionsDropsScriptsWithoutCategory(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleHomelab)
+	sections := buildSectionsFrom(fixture(), config.RoleServer)
 	for _, s := range sections {
 		for _, sc := range s.Scripts {
 			if sc.Name == "no-category" {
@@ -95,7 +95,7 @@ func TestBuildSectionsDropsScriptsWithoutCategory(t *testing.T) {
 }
 
 func TestSectionInstalledCount(t *testing.T) {
-	sections := buildSectionsFrom(fixture(), config.RoleHomelab)
+	sections := buildSectionsFrom(fixture(), config.RoleServer)
 	for _, s := range sections {
 		switch s.Category {
 		case config.ScriptCategoryTerminal:
@@ -103,10 +103,10 @@ func TestSectionInstalledCount(t *testing.T) {
 			if installed != 1 || total != 2 {
 				t.Errorf("Terminal: got %d/%d, want 1/2", installed, total)
 			}
-		case config.ScriptCategoryHomelab:
+		case config.ScriptCategoryServer:
 			installed, total := s.installedCount()
 			if installed != 1 || total != 2 {
-				t.Errorf("Homelab: got %d/%d, want 1/2", installed, total)
+				t.Errorf("Server: got %d/%d, want 1/2", installed, total)
 			}
 		}
 	}

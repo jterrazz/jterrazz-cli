@@ -16,7 +16,7 @@ var machineInitCmd = &cobra.Command{
 	Short: "Register this machine in ~/.jterrazz/config.json (interactive)",
 	Long: strings.TrimSpace(`Interactive bootstrap of the machine registry.
 
-Prompts for an alias (default = hostname) and a role (dev or homelab),
+Prompts for an alias (default = hostname) and a role (client or server),
 adds the entry to ~/.jterrazz/config.json, and marks it as self. Run this
 once per machine you own.`),
 	Run: func(cmd *cobra.Command, args []string) { runMachineInit() },
@@ -54,7 +54,7 @@ var machineRemoveCmd = &cobra.Command{
 }
 
 func init() {
-	machineAddCmd.Flags().StringVar(&machineAddRole, "role", "", "machine role: dev or homelab (required)")
+	machineAddCmd.Flags().StringVar(&machineAddRole, "role", "", "machine role: client or server (required)")
 	machineAddCmd.Flags().StringVar(&machineAddSSH, "ssh", "", "ssh endpoint user@host (required for remote machines)")
 	machineAddCmd.Flags().StringVar(&machineAddIdentity, "identity", "", "ssh identity file path (default ~/.ssh/id_ed25519)")
 	machineCmd.AddCommand(machineInitCmd, machineListCmd, machineAddCmd, machineRemoveCmd)
@@ -79,7 +79,7 @@ func runMachineInit() {
 		alias = defaultAlias
 	}
 
-	fmt.Print("Role [dev/homelab]: ")
+	fmt.Print("Role [client/server]: ")
 	line, _ = reader.ReadString('\n')
 	role := config.Role(strings.TrimSpace(strings.ToLower(line)))
 
@@ -120,7 +120,7 @@ func runMachineList() {
 
 func runMachineAdd(alias string) {
 	if machineAddRole == "" {
-		failOn(fmt.Errorf("--role is required (dev or homelab)"))
+		failOn(fmt.Errorf("--role is required (client or server)"))
 	}
 	m := config.Machine{
 		Role:     config.Role(machineAddRole),

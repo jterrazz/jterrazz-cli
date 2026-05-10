@@ -18,7 +18,7 @@ var StatusSections = []StatusSection{
 	{Title: "Environment", SubTitle: "Services", RenderFn: nil},
 	{Title: "Environment", SubTitle: "Health", RenderFn: nil},
 
-	// Workspace — dev state
+	// Workspace — local project state
 	{Title: "Workspace", SubTitle: "Git", RenderFn: nil},
 	{Title: "Workspace", SubTitle: "Disk", RenderFn: nil},
 
@@ -27,7 +27,7 @@ var StatusSections = []StatusSection{
 	{Title: "Config", SubTitle: "Security", RenderFn: nil},
 	{Title: "Config", SubTitle: "Editor", RenderFn: nil},
 	{Title: "Config", SubTitle: "System", RenderFn: nil},
-	{Title: "Config", SubTitle: "Homelab", RenderFn: nil},
+	{Title: "Config", SubTitle: "Server", RenderFn: nil},
 	{Title: "Config", SubTitle: "Network", RenderFn: nil},
 	{Title: "Config", SubTitle: "Identity", RenderFn: nil},
 
