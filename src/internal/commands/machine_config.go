@@ -22,6 +22,24 @@ var machineConfigCmd = &cobra.Command{
 
 func init() {
 	machineCmd.AddCommand(machineConfigCmd)
+
+	// Register the homelab Scripts in the config package so the j config TUI
+	// can list them. Done here (not in scripts.go) to keep the config package
+	// free of macOS-specific imports and side-effects.
+	config.RegisterHomelabActions(config.HomelabActions{
+		AutologinEnable:       enableAutologin,
+		AutologinDisable:      disableAutologin,
+		AutologinCheck:        checkAutologinEnabled,
+		PowerEnable:           enablePowerHarden,
+		PowerDisable:          disablePowerHarden,
+		PowerCheck:            checkPowerHardened,
+		LockAfterLoginEnable:  enableLockAfterLogin,
+		LockAfterLoginDisable: disableLockAfterLogin,
+		LockAfterLoginCheck:   checkLockAfterLoginInstalled,
+		SshdEnable:            enableSshd,
+		SshdDisable:           disableSshd,
+		SshdCheck:             checkSshdEnabled,
+	})
 }
 
 // requireHomelabRole returns nil if the current machine is registered as

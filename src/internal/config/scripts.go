@@ -228,6 +228,79 @@ var Scripts = []Script{
 		Category:    ScriptCategorySystem,
 		RunFn:       runDockSpacer,
 	},
+
+	// ==========================================================================
+	// Homelab — only visible on machines registered with role=homelab
+	// ==========================================================================
+	// CheckFn / RunFn / DisableFn live in src/internal/commands/machine_config_*.go
+	// and are wired up via config.RegisterHomelabActions at init time so this file
+	// stays free of macOS-specific logic.
+}
+
+// HomelabActions is the set of enable/disable/check functions provided by the
+// commands package for the four homelab-only scripts. The commands package wires
+// these in via RegisterHomelabActions so this file (and the config package as a
+// whole) stays free of macOS-specific imports.
+type HomelabActions struct {
+	AutologinEnable     func() error
+	AutologinDisable    func() error
+	AutologinCheck      func() CheckResult
+	PowerEnable         func() error
+	PowerDisable        func() error
+	PowerCheck          func() CheckResult
+	LockAfterLoginEnable  func() error
+	LockAfterLoginDisable func() error
+	LockAfterLoginCheck   func() CheckResult
+	SshdEnable          func() error
+	SshdDisable         func() error
+	SshdCheck           func() CheckResult
+}
+
+// RegisterHomelabActions appends the four homelab Scripts using the provided
+// action set. Called from the commands package init().
+func RegisterHomelabActions(a HomelabActions) {
+	Scripts = append(Scripts,
+		Script{
+			Name:        "autologin",
+			Description: "GUI auto-login for jterrazz.agent (FileVault-aware)",
+			Category:    ScriptCategoryHomelab,
+			Role:        RoleHomelab,
+			Interactive: true,
+			CheckFn:     a.AutologinCheck,
+			RunFn:       a.AutologinEnable,
+			DisableFn:   a.AutologinDisable,
+		},
+		Script{
+			Name:        "power",
+			Description: "Always-on power policy (no sleep, autorestart, wake)",
+			Category:    ScriptCategoryHomelab,
+			Role:        RoleHomelab,
+			Interactive: true,
+			CheckFn:     a.PowerCheck,
+			RunFn:       a.PowerEnable,
+			DisableFn:   a.PowerDisable,
+		},
+		Script{
+			Name:        "lock-after-login",
+			Description: "LaunchAgent that locks the screen ~20s after auto-login",
+			Category:    ScriptCategoryHomelab,
+			Role:        RoleHomelab,
+			Interactive: true,
+			CheckFn:     a.LockAfterLoginCheck,
+			RunFn:       a.LockAfterLoginEnable,
+			DisableFn:   a.LockAfterLoginDisable,
+		},
+		Script{
+			Name:        "sshd",
+			Description: "Remote Login (sshd) + FileVault pre-boot SSH unlock group",
+			Category:    ScriptCategoryHomelab,
+			Role:        RoleHomelab,
+			Interactive: true,
+			CheckFn:     a.SshdCheck,
+			RunFn:       a.SshdEnable,
+			DisableFn:   a.SshdDisable,
+		},
+	)
 }
 
 // =============================================================================

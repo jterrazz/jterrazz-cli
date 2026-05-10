@@ -34,10 +34,47 @@ const (
 var itemNames []string
 var loadingScript string // Script currently being run
 
+// selfRole returns the role of the current machine (or empty if no self is set
+// in the registry — in which case role-tagged scripts are filtered out).
+func selfRole() config.Role {
+	if _, m, ok := config.SelfMachine(); ok {
+		return m.Role
+	}
+	return ""
+}
+
+// scriptsForCurrentRole returns the subset of config.Scripts that apply to the
+// current machine — i.e. scripts with no Role, or with Role matching self.
+func scriptsForCurrentRole() []config.Script {
+	role := selfRole()
+	var out []config.Script
+	for _, s := range config.Scripts {
+		if s.MatchesRole(role) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// effectiveAction returns (fn, foundInstalled). If the script is currently
+// installed and has a DisableFn, the disable action is returned. Otherwise the
+// install/enable action (RunFn) is returned. Used both by the TUI and by the
+// non-interactive runScript callback so toggle behaviour is consistent.
+func effectiveAction(s *config.Script) (fn func() error, isToggleOff bool) {
+	if s == nil {
+		return nil, false
+	}
+	if s.DisableFn != nil && s.CheckFn != nil && s.CheckFn().Installed {
+		return s.DisableFn, true
+	}
+	return s.RunFn, false
+}
+
 // BuildItems builds the setup menu items
 func BuildItems() []components.Item {
 	var items []components.Item
 	itemNames = []string{}
+	scripts := scriptsForCurrentRole()
 
 	// Navigation section
 	items = append(items, components.Item{Kind: components.KindHeader, Label: "Navigation"})
@@ -61,7 +98,7 @@ func BuildItems() []components.Item {
 
 	// Calculate max description width for alignment
 	maxDescWidth := 0
-	for _, script := range config.Scripts {
+	for _, script := range scripts {
 		if script.CheckFn == nil {
 			continue
 		}
@@ -70,7 +107,7 @@ func BuildItems() []components.Item {
 		}
 	}
 
-	for _, script := range config.Scripts {
+	for _, script := range scripts {
 		if script.CheckFn == nil {
 			continue
 		}
@@ -122,7 +159,7 @@ func BuildItems() []components.Item {
 	itemNames = append(itemNames, "")
 
 	var runOnceItems []scriptEntry
-	for _, script := range config.Scripts {
+	for _, script := range scripts {
 		if script.CheckFn != nil {
 			continue
 		}
@@ -181,10 +218,13 @@ func HandleSelect(index int, item components.Item, runScript func(string)) tea.C
 			})
 		}
 
-		// Interactive RunFn: suspend the TUI so child commands can prompt
-		// the user (passphrases, key generation confirmations, etc.).
-		if script != nil && script.Interactive && script.RunFn != nil {
-			cmd := &fnExecCommand{fn: script.RunFn}
+		// Pick the right action (RunFn or DisableFn) based on current state.
+		fn, _ := effectiveAction(script)
+
+		// Interactive: suspend the TUI so child commands can prompt the user
+		// (passphrases, key generation, sudo, etc.).
+		if script != nil && script.Interactive && fn != nil {
+			cmd := &fnExecCommand{fn: fn}
 			return tea.Exec(cmd, func(err error) tea.Msg {
 				return components.ActionDoneMsg{Message: "Completed " + name}
 			})
