@@ -7,14 +7,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const prebootSSHGroup = "com.apple.access_ssh"
+const sshAccessGroup = "com.apple.access_ssh"
 
-var machinePrebootSSHCmd = &cobra.Command{
-	Use:   "preboot-ssh",
-	Short: "Manage Remote Login + FileVault pre-boot SSH unlock",
+var machineSshdCmd = &cobra.Command{
+	Use:   "sshd",
+	Short: "Manage Remote Login (sshd) + FileVault pre-boot SSH unlock",
 }
 
-var machinePrebootSSHEnableCmd = &cobra.Command{
+var machineSshdEnableCmd = &cobra.Command{
 	Use:   "enable",
 	Short: "Enable Remote Login (sshd) and add jterrazz.agent to access_ssh",
 	Long: strings.TrimSpace(`Enable Remote Login (sshd) and restrict it to admins + jterrazz.agent.
@@ -23,27 +23,27 @@ The FileVault "remote unlock at startup" feature itself must be toggled in the G
   System Settings → Privacy & Security → FileVault → (the remote-unlock toggle)
 This command prints that reminder; macOS does not expose the toggle via CLI on
 recent versions without MDM.`),
-	Run: func(cmd *cobra.Command, args []string) { runMachinePrebootSSHEnable() },
+	Run: func(cmd *cobra.Command, args []string) { runMachineSshdEnable() },
 }
 
-var machinePrebootSSHStatusCmd = &cobra.Command{
+var machineSshdStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show Remote Login state and access_ssh group membership",
-	Run:   func(cmd *cobra.Command, args []string) { runMachinePrebootSSHStatus() },
+	Run:   func(cmd *cobra.Command, args []string) { runMachineSshdStatus() },
 }
 
 func init() {
-	machinePrebootSSHCmd.AddCommand(machinePrebootSSHEnableCmd, machinePrebootSSHStatusCmd)
-	machineCmd.AddCommand(machinePrebootSSHCmd)
+	machineSshdCmd.AddCommand(machineSshdEnableCmd, machineSshdStatusCmd)
+	machineConfigCmd.AddCommand(machineSshdCmd)
 }
 
-func runMachinePrebootSSHEnable() {
+func runMachineSshdEnable() {
 	failOn(requireDarwin())
 	failOn(requireRoot())
 
-	print.SectionDivider("PREBOOT-SSH ENABLE")
+	print.SectionDivider("SSHD ENABLE")
 	print.Category("Before")
-	dumpPrebootSSHState()
+	dumpSshdState()
 	print.Empty()
 
 	print.Category("Applying")
@@ -55,20 +55,20 @@ func runMachinePrebootSSHEnable() {
 	}
 
 	// Idempotently ensure the access_ssh group exists and contains jterrazz.agent.
-	if !sshGroupHasMember(prebootSSHGroup, autologinTargetUser) {
-		_, _ = runQuiet("/usr/sbin/dseditgroup", "-o", "create", "-q", prebootSSHGroup)
-		if _, err := runQuiet("/usr/sbin/dseditgroup", "-o", "edit", "-a", autologinTargetUser, "-t", "user", prebootSSHGroup); err == nil {
-			print.Success(autologinTargetUser + " added to " + prebootSSHGroup)
+	if !sshGroupHasMember(sshAccessGroup, autologinTargetUser) {
+		_, _ = runQuiet("/usr/sbin/dseditgroup", "-o", "create", "-q", sshAccessGroup)
+		if _, err := runQuiet("/usr/sbin/dseditgroup", "-o", "edit", "-a", autologinTargetUser, "-t", "user", sshAccessGroup); err == nil {
+			print.Success(autologinTargetUser + " added to " + sshAccessGroup)
 		} else {
 			print.Warning("dseditgroup edit failed: " + err.Error())
 		}
 	} else {
-		print.Success(autologinTargetUser + " already in " + prebootSSHGroup)
+		print.Success(autologinTargetUser + " already in " + sshAccessGroup)
 	}
 
 	print.Empty()
 	print.Category("After")
-	dumpPrebootSSHState()
+	dumpSshdState()
 	print.Empty()
 
 	print.Warning("Manual step still required:")
@@ -76,22 +76,22 @@ func runMachinePrebootSSHEnable() {
 	print.Dim("  (label varies by macOS version; only available on supported hardware)")
 }
 
-func runMachinePrebootSSHStatus() {
+func runMachineSshdStatus() {
 	failOn(requireDarwin())
-	print.SectionDivider("PREBOOT-SSH STATUS")
-	dumpPrebootSSHState()
+	print.SectionDivider("SSHD STATUS")
+	dumpSshdState()
 }
 
-func dumpPrebootSSHState() {
+func dumpSshdState() {
 	if out, err := runQuiet("/usr/sbin/systemsetup", "-getremotelogin"); err == nil {
 		print.Linef("  systemsetup: %s", oneLineOrDash(out))
 	} else {
 		print.Linef("  systemsetup: error %s", err.Error())
 	}
-	if sshGroupHasMember(prebootSSHGroup, autologinTargetUser) {
-		print.Linef("  %s: contains %s", prebootSSHGroup, autologinTargetUser)
+	if sshGroupHasMember(sshAccessGroup, autologinTargetUser) {
+		print.Linef("  %s: contains %s", sshAccessGroup, autologinTargetUser)
 	} else {
-		print.Linef("  %s: missing %s", prebootSSHGroup, autologinTargetUser)
+		print.Linef("  %s: missing %s", sshAccessGroup, autologinTargetUser)
 	}
 	if out, err := runQuiet("/usr/bin/fdesetup", "status"); err == nil {
 		print.Linef("  fdesetup: %s", oneLineOrDash(out))

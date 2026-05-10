@@ -47,7 +47,7 @@ var machinePowerStatusCmd = &cobra.Command{
 
 func init() {
 	machinePowerCmd.AddCommand(machinePowerHardenCmd, machinePowerStatusCmd)
-	machineCmd.AddCommand(machinePowerCmd)
+	machineConfigCmd.AddCommand(machinePowerCmd)
 }
 
 func runMachinePowerHarden() {

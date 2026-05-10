@@ -50,7 +50,7 @@ var machineLockAfterLoginStatusCmd = &cobra.Command{
 
 func init() {
 	machineLockAfterLoginCmd.AddCommand(machineLockAfterLoginInstallCmd, machineLockAfterLoginUninstallCmd, machineLockAfterLoginStatusCmd)
-	machineCmd.AddCommand(machineLockAfterLoginCmd)
+	machineConfigCmd.AddCommand(machineLockAfterLoginCmd)
 }
 
 func runMachineLockAfterLoginInstall() {

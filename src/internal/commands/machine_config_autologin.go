@@ -52,7 +52,7 @@ var machineAutologinStatusCmd = &cobra.Command{
 func init() {
 	machineAutologinEnableCmd.Flags().StringVar(&autologinPasswordEnv, "password-env", "AGENT_PASSWORD", "env var that holds the agent password (read at run time, never logged)")
 	machineAutologinCmd.AddCommand(machineAutologinEnableCmd, machineAutologinDisableCmd, machineAutologinStatusCmd)
-	machineCmd.AddCommand(machineAutologinCmd)
+	machineConfigCmd.AddCommand(machineAutologinCmd)
 }
 
 func runMachineAutologinStatus() {
