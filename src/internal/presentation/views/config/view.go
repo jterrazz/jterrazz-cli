@@ -42,19 +42,19 @@ func (m Model) renderTabBody() string {
 	case tabSkills:
 		return m.renderSkillsBody()
 	case tabRemote:
-		return contextStyle.Render(" Remote tab — coming soon.")
+		return m.renderRemoteBody()
 	}
 	return ""
 }
 
 // renderModal renders the input-collection form. We frame huh's output with
-// the standard header (re-titled to "install <script>") so the user keeps
-// context, and add a footer hint.
+// the standard header (re-titled to whatever buildModal/buildFormModal set)
+// so the user keeps context, and add a footer hint.
 func (m Model) renderModal() string {
 	var b strings.Builder
-	b.WriteString(m.renderHeader("install " + m.formScript.Name))
-	if m.formScript.Help != "" {
-		b.WriteString(detailTextStyle.Render(" " + wrapText(m.formScript.Help, m.contentWidth()-2)))
+	b.WriteString(m.renderHeader(m.formTitle))
+	if m.formHelp != "" {
+		b.WriteString(detailTextStyle.Render(" " + wrapText(m.formHelp, m.contentWidth()-2)))
 		b.WriteString("\n\n")
 	}
 	b.WriteString(m.form.View())
@@ -191,6 +191,8 @@ func (m Model) renderFooter() string {
 		footer = m.renderConfigFooter()
 	case tabSkills:
 		footer = m.renderSkillsFooter()
+	case tabRemote:
+		footer = m.renderRemoteFooter()
 	default:
 		footer = contextStyle.Render(" —")
 	}

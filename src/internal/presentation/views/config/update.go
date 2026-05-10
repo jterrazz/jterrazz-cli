@@ -83,8 +83,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateModal forwards the message to the huh form and reacts when the form
-// reaches a terminal state. On completion, packages collected values and
-// fires the install action. On abort, just closes the modal.
+// reaches a terminal state. On completion, runs the closure stashed by
+// buildModal/buildFormModal. On abort, just closes the modal.
 func (m Model) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
 	form, cmd := m.form.Update(msg)
 	if f, ok := form.(*huh.Form); ok {
@@ -93,15 +93,14 @@ func (m Model) updateModal(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		s := m.formScript
-		values := m.collectModalValues()
+		onComplete := m.formOnComplete
 		m.closeModal()
-		m.busy = true
-		m.busyAction = "install " + s.Name
 		m.lastResult = ""
 		m.lastErr = nil
-		install := s.InstallFn // capture before we lose the form context
-		return m, runAction(s.Name, "install", func() error { return install(values) })
+		if onComplete == nil {
+			return m, nil
+		}
+		return m, onComplete()
 
 	case huh.StateAborted:
 		m.closeModal()
@@ -201,6 +200,8 @@ func (m Model) installForActiveTab() (tea.Model, tea.Cmd) {
 		return m.startInstall()
 	case tabSkills:
 		return m.skillStartInstall()
+	case tabRemote:
+		return m.remoteStartConfigure()
 	}
 	return m, nil
 }

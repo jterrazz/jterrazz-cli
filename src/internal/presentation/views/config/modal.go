@@ -1,6 +1,7 @@
 package configview
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 )
@@ -15,6 +16,10 @@ func (m Model) modalActive() bool {
 // bindings on the model so values can be read back when the form completes.
 //
 // One *string per input is allocated so huh can write directly into it.
+//
+// The form's onComplete callback runs the script's InstallFn with the
+// collected values — the canonical install-with-inputs flow. For the Remote
+// tab (and any future generic form) use buildFormModal instead.
 func (m *Model) buildModal(s *config.Script) {
 	m.formScript = s
 	m.formBindings = make([]*string, len(s.Inputs))
@@ -26,6 +31,31 @@ func (m *Model) buildModal(s *config.Script) {
 		fields = append(fields, buildField(in, m.formBindings[i]))
 	}
 
+	m.formTitle = "install " + s.Name
+	m.formHelp = s.Help
+	m.formOnComplete = func() tea.Cmd {
+		values := m.collectModalValues()
+		install := s.InstallFn
+		name := s.Name
+		m.busy = true
+		m.busyAction = "install " + name
+		return runAction(name, "install", func() error { return install(values) })
+	}
+	m.form = huh.NewForm(huh.NewGroup(fields...)).
+		WithTheme(huh.ThemeBase()).
+		WithShowHelp(false)
+}
+
+// buildFormModal opens a generic huh form modal not tied to a Script. The
+// supplied onComplete fires when the user submits the form; bindings live
+// in the closure the caller controls. Used by the Remote tab to reconfigure
+// Tailscale settings.
+func (m *Model) buildFormModal(title, help string, fields []huh.Field, onComplete func() tea.Cmd) {
+	m.formScript = nil
+	m.formBindings = nil
+	m.formTitle = title
+	m.formHelp = help
+	m.formOnComplete = onComplete
 	m.form = huh.NewForm(huh.NewGroup(fields...)).
 		WithTheme(huh.ThemeBase()).
 		WithShowHelp(false)
@@ -100,4 +130,7 @@ func (m *Model) closeModal() {
 	m.form = nil
 	m.formScript = nil
 	m.formBindings = nil
+	m.formTitle = ""
+	m.formHelp = ""
+	m.formOnComplete = nil
 }

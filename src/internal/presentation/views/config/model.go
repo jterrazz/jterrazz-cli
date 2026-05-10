@@ -64,12 +64,16 @@ type Model struct {
 	lastResult string
 	lastErr    error
 
-	// Modal state — non-nil while collecting Inputs for a script before
-	// invoking InstallFn. The bindings slice mirrors formScript.Inputs and
-	// holds the live values huh writes into.
-	form         *huh.Form
-	formScript   *config.Script
-	formBindings []*string
+	// Modal state — non-nil while a huh form is up. Used both for the
+	// install-with-inputs flow (formScript set, bindings auto-collected)
+	// and for generic forms like the Remote-tab reconfigure (formScript
+	// nil, bindings owned by the caller via closure).
+	form           *huh.Form
+	formScript     *config.Script
+	formBindings   []*string
+	formTitle      string         // header label, e.g. "install autologin"
+	formHelp       string         // optional sub-text shown above the form
+	formOnComplete func() tea.Cmd // fires when the user submits
 }
 
 // cursorPos identifies the highlighted item: section index + item index
