@@ -25,15 +25,21 @@ var sectionOrder = []config.ScriptCategory{
 	config.ScriptCategoryHomelab,
 }
 
-// buildSections groups Scripts by Category, applies role filtering, sorts
-// items within each section by name, and returns sections in the canonical
-// order (sectionOrder first, then any extras alphabetically).
+// buildSections groups config.Scripts by Category, applies role filtering,
+// sorts items within each section by name, and returns sections in the
+// canonical order (sectionOrder first, then any extras alphabetically).
+func buildSections(role config.Role) []Section {
+	return buildSectionsFrom(config.Scripts, role)
+}
+
+// buildSectionsFrom is the testable variant: takes the script list explicitly
+// instead of pulling from the package-level config.Scripts.
 //
 // Scripts without a Category are dropped — every config item must declare one.
-func buildSections(role config.Role) []Section {
+func buildSectionsFrom(scripts []config.Script, role config.Role) []Section {
 	groups := map[config.ScriptCategory][]*config.Script{}
-	for i := range config.Scripts {
-		s := &config.Scripts[i]
+	for i := range scripts {
+		s := &scripts[i]
 		if !s.MatchesRole(role) {
 			continue
 		}
