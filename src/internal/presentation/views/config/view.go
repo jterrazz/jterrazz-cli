@@ -58,7 +58,7 @@ func (m Model) renderHeader(command string) string {
 	if m.selfRole == "" {
 		context = print.MutedText("(unregistered)")
 	} else {
-		context = m.selfAlias + " · " + print.RenderRole(string(m.selfRole))
+		context = m.selfAlias + " " + print.RenderRole(string(m.selfRole))
 	}
 	return print.RenderHeader(command, context, m.contentWidth())
 }

@@ -45,17 +45,27 @@ func Installing(name string) {
 // Role chip (used in header contexts)
 // =============================================================================
 
-// roleClientStyle / roleServerStyle colour the role chip so it pops without
-// shouting. Cool for client, warm for server.
+// roleClientStyle / roleServerStyle render the role as an inverse-video pill
+// (background colour + dark bold text + 1-char horizontal padding) so it
+// reads as a badge — the GitHub/Linear/Vercel pattern. Cool blue for client,
+// warm green for server.
 var (
-	roleClientStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#5fafd7"))
-	roleServerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#5fd75f"))
+	roleClientStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#5fafd7")).
+			Foreground(lipgloss.Color("#000000")).
+			Bold(true).
+			Padding(0, 1)
+	roleServerStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#5fd75f")).
+			Foreground(lipgloss.Color("#000000")).
+			Bold(true).
+			Padding(0, 1)
 )
 
-// RenderRole returns the role string with a subtle colour for client/server.
-// Falls back to plain text for unknown roles. Lives here (rather than in
-// commands or config) so TUIs and CLI commands share the same rendering
-// without pulling in a config dependency on the print package.
+// RenderRole returns the role rendered as a coloured pill ready to drop into
+// a header context. Falls back to plain text for unknown roles. Lives here
+// (rather than in commands or config) so TUIs and CLI commands share the
+// same rendering without pulling in a config dependency on the print package.
 func RenderRole(role string) string {
 	switch role {
 	case "client":

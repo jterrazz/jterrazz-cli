@@ -97,7 +97,7 @@ func selfHeaderContext() string {
 	if !ok {
 		return print.MutedText("(unregistered)")
 	}
-	return alias + " · " + print.RenderRole(string(m.Role))
+	return alias + " " + print.RenderRole(string(m.Role))
 }
 
 // scheduleProcessRefresh returns a command that triggers a process refresh after 1 second
@@ -364,17 +364,9 @@ func (m Model) View() string {
 
 	var b strings.Builder
 
-	// Header context: machine identity (alias · role) always present, plus
-	// OS info once sysinfo has loaded.
-	context := selfHeaderContext()
-	if sysinfo, ok := m.items["sysinfo"]; ok && sysinfo.Loaded {
-		context = context + " · " + sysinfo.Detail
-	} else {
-		context = context + " · " + m.spinner.View() + " Loading..."
-	}
-
-	// Header
-	b.WriteString(print.RenderHeader("j status", context, m.width))
+	// Header context: machine identity (alias + role pill) only — OS, hostname,
+	// shell etc. are visible inside the System tab when needed.
+	b.WriteString(print.RenderHeader("j status", selfHeaderContext(), m.width))
 
 	// Tab bar
 	b.WriteString(m.renderTabBar(m.width))
