@@ -44,8 +44,9 @@ type Model struct {
 	total         int
 	quitting      bool
 	allLoaded     bool
+	activeTab     int       // index into TabLabels
 	diskSortOrder []string  // cached disk item IDs once sorted
-	diskMaxSize   float64  // cached max disk size for stable bar ratios
+	diskMaxSize   float64   // cached max disk size for stable bar ratios
 	cpuHistory    []float64 // last N seconds of total CPU usage
 	gpuHistory    []float64 // last N seconds of GPU utilization
 	netRxHistory  []float64 // last N seconds of network bytes received/sec
@@ -181,19 +182,45 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoTop()
 		case "end", "G":
 			m.viewport.GotoBottom()
+		case "left", "h", "shift+tab":
+			if m.activeTab > 0 {
+				m.activeTab--
+				if m.ready {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoTop()
+				}
+			}
+		case "right", "l", "tab":
+			if m.activeTab < len(TabLabels)-1 {
+				m.activeTab++
+				if m.ready {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoTop()
+				}
+			}
+		case "1", "2", "3", "4", "5":
+			idx := int(msg.String()[0] - '1')
+			if idx < len(TabLabels) {
+				m.activeTab = idx
+				if m.ready {
+					m.viewport.SetContent(m.renderContent())
+					m.viewport.GotoTop()
+				}
+			}
 		}
 
 	case tea.WindowSizeMsg:
 		headerHeight := components.PageHeaderHeight(true) // title + subtitle
+		tabBarHeight := 2                                 // tab strip + blank line
 		footerHeight := 1
 
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight-footerHeight)
-			m.viewport.YPosition = headerHeight
+			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight-tabBarHeight-footerHeight)
+			m.viewport.YPosition = headerHeight + tabBarHeight
 			m.ready = true
 		} else {
 			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - headerHeight - footerHeight
+			m.viewport.Height = msg.Height - headerHeight - tabBarHeight - footerHeight
 		}
 		m.width = msg.Width
 		m.height = msg.Height
@@ -336,13 +363,17 @@ func (m Model) View() string {
 	// Header
 	b.WriteString(components.PageHeader("STATUS", subtitle))
 
+	// Tab bar
+	b.WriteString(m.renderTabBar(m.width))
+	b.WriteString("\n\n")
+
 	// Content
 	b.WriteString(m.viewport.View())
 	b.WriteString("\n")
 
 	// Footer
 	scrollPercent := int(m.viewport.ScrollPercent() * 100)
-	help := fmt.Sprintf("↑/↓ scroll • g/G top/bottom • %d%% • q quit", scrollPercent)
+	help := fmt.Sprintf("←/→ tab • ↑/↓ scroll • g/G top/bottom • %d%% • q quit", scrollPercent)
 
 	if m.allLoaded {
 		footer := theme.Help.Render(help) + components.ColumnSeparator + theme.Success.Render(theme.IconCheck+" All checks complete")

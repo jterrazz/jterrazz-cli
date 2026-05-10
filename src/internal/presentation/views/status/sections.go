@@ -19,8 +19,13 @@ const minColumnWidth = 44
 // Main renderer
 // ─────────────────────────────────────────────────────────────────────────────
 
+// TabLabels enumerates the j status tabs in display order. Index in this
+// slice maps to Model.activeTab.
+var TabLabels = []string{"Activity", "System", "Workspace", "Config", "Software"}
+
+// renderContent renders the active tab's content. Section dividers are gone —
+// the tab bar above the viewport now plays that role.
 func (m Model) renderContent() string {
-	var b strings.Builder
 	w := m.width
 	if w < minColumnWidth {
 		w = minColumnWidth
@@ -28,26 +33,36 @@ func (m Model) renderContent() string {
 
 	sections := m.groupBySection()
 
-	// ── SYSTEM ───────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("ACTIVITY", w))
-	b.WriteString(m.renderActivity(sections, w))
+	switch m.activeTab {
+	case 0:
+		return m.renderActivity(sections, w)
+	case 1:
+		return m.renderEnvironment(sections, w)
+	case 2:
+		return m.renderWorkspace(sections, w)
+	case 3:
+		return m.renderConfig(sections, w)
+	case 4:
+		return m.renderTools(sections, w)
+	}
+	return ""
+}
 
-	// ── SYSTEM ──────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("SYSTEM", w))
-	b.WriteString(m.renderEnvironment(sections, w))
-
-	// ── WORKSPACE ────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("WORKSPACE", w))
-	b.WriteString(m.renderWorkspace(sections, w))
-
-	// ── SETUP ────────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("CONFIG", w))
-	b.WriteString(m.renderConfig(sections, w))
-
-	// ── SOFTWARE ─────────────────────────────────────────────────────
-	b.WriteString(sectionDivider("SOFTWARE", w))
-	b.WriteString(m.renderTools(sections, w))
-
+// renderTabBar renders the horizontal tab strip shown under the page header.
+// The active tab is highlighted; others are dimmed.
+func (m Model) renderTabBar(width int) string {
+	var b strings.Builder
+	b.WriteString(" ")
+	for i, label := range TabLabels {
+		if i > 0 {
+			b.WriteString("  ")
+		}
+		if i == m.activeTab {
+			b.WriteString(theme.Selected.Render("● " + label))
+		} else {
+			b.WriteString(theme.Muted.Render("○ " + label))
+		}
+	}
 	return b.String()
 }
 
