@@ -109,7 +109,7 @@ func checkLockAfterLoginInstalled() config.CheckResult {
 	if _, err := os.Stat(lockAfterLoginPlist); err != nil {
 		return config.CheckResult{}
 	}
-	return config.InstalledWithDetail(lockAfterLoginPlist)
+	return config.InstalledWithDetail("agent installed")
 }
 
 func dumpLockAfterLoginState() {

@@ -268,6 +268,37 @@ func (l *Loader) buildItems() {
 		})
 	}
 
+	// Maintenance checks (pending macOS / brew updates) live in the System
+	// tab next to Network/Tailscale/Disk — they're "what's the state of
+	// this machine" signals, not configuration. Kind=KindSecurity so the
+	// renderer's GoodWhen-aware badge logic kicks in (GoodWhen=false means
+	// "healthy when nothing pending").
+	for _, check := range config.MaintenanceChecks {
+		l.addItem(Item{
+			ID:          "maintenance-" + check.Name,
+			Kind:        KindSecurity,
+			Section:     "Environment",
+			SubSection:  "Updates",
+			Name:        check.Name,
+			Description: check.Description,
+			GoodWhen:    check.GoodWhen,
+		})
+	}
+
+	// Daemons — user LaunchAgents matching the jterrazz prefix list.
+	// Discovered at startup so a freshly-installed agent shows up on next
+	// `j status` run without code changes here.
+	for _, d := range config.DiscoverDaemons() {
+		l.addItem(Item{
+			ID:          "daemon-" + d.Label,
+			Kind:        KindConfig,
+			Section:     "Config",
+			SubSection:  "Daemons",
+			Name:        d.Label,
+			Description: "LaunchAgent",
+		})
+	}
+
 	// ── Tools ─────────────────────────────────────────────────────────
 	for _, category := range config.ToolCategories {
 		tools := config.GetToolsByCategory(category)
@@ -407,6 +438,35 @@ func (l *Loader) Start() {
 				Detail: result.Detail, GoodWhen: c.GoodWhen,
 			}}
 		}(check)
+	}
+
+	// Maintenance checks (pending updates, uptime, etc.)
+	for _, check := range config.MaintenanceChecks {
+		wg.Add(1)
+		go func(c config.MaintenanceCheck) {
+			defer wg.Done()
+			result := c.CheckFn()
+			l.updates <- UpdateMsg{ID: "maintenance-" + c.Name, Item: Item{
+				ID: "maintenance-" + c.Name, Kind: KindSecurity, Name: c.Name,
+				Description: c.Description, Loaded: true, Installed: result.Installed,
+				Detail: result.Detail, GoodWhen: c.GoodWhen,
+			}}
+		}(check)
+	}
+
+	// Daemon state — one launchctl call per agent. Could batch but the
+	// list is small (< 10 typically) and probing in parallel keeps
+	// startup snappy if launchctl ever stalls on one entry.
+	for _, d := range config.DiscoverDaemons() {
+		wg.Add(1)
+		go func(d config.DaemonCheck) {
+			defer wg.Done()
+			result := config.CheckDaemonState(d.Label)
+			l.updates <- UpdateMsg{ID: "daemon-" + d.Label, Item: Item{
+				ID: "daemon-" + d.Label, Kind: KindConfig, Name: d.Label,
+				Loaded: true, Installed: result.Installed, Detail: result.Detail,
+			}}
+		}(d)
 	}
 
 	// Tool checks

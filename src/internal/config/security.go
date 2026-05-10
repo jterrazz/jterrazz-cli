@@ -13,7 +13,9 @@ type SecurityCheck struct {
 	GoodWhen    bool // true = check passes when Installed=true, false = check passes when Installed=false
 }
 
-// SecurityChecks is the list of macOS security checks
+// SecurityChecks is the list of macOS security checks. Each CheckFn populates
+// Detail with a short state word ("on", "off", "unknown") so the j status
+// Configuration tab can render it as a right-aligned second column.
 var SecurityChecks = []SecurityCheck{
 	{
 		Name:        "filevault",
@@ -21,9 +23,10 @@ var SecurityChecks = []SecurityCheck{
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("fdesetup", "status").Output()
 			if err != nil {
-				return NotInstalled()
+				return CheckResult{Detail: "unknown"}
 			}
-			return CheckResult{Installed: strings.Contains(string(out), "FileVault is On")}
+			on := strings.Contains(string(out), "FileVault is On")
+			return CheckResult{Installed: on, Detail: onOff(on)}
 		},
 		GoodWhen: true,
 	},
@@ -33,9 +36,10 @@ var SecurityChecks = []SecurityCheck{
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("/usr/libexec/ApplicationFirewall/socketfilterfw", "--getglobalstate").Output()
 			if err != nil {
-				return NotInstalled()
+				return CheckResult{Detail: "unknown"}
 			}
-			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
+			on := strings.Contains(string(out), "enabled")
+			return CheckResult{Installed: on, Detail: onOff(on)}
 		},
 		GoodWhen: true,
 	},
@@ -45,9 +49,10 @@ var SecurityChecks = []SecurityCheck{
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("csrutil", "status").Output()
 			if err != nil {
-				return NotInstalled()
+				return CheckResult{Detail: "unknown"}
 			}
-			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
+			on := strings.Contains(string(out), "enabled")
+			return CheckResult{Installed: on, Detail: onOff(on)}
 		},
 		GoodWhen: true,
 	},
@@ -57,9 +62,10 @@ var SecurityChecks = []SecurityCheck{
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("spctl", "--status").Output()
 			if err != nil {
-				return NotInstalled()
+				return CheckResult{Detail: "unknown"}
 			}
-			return CheckResult{Installed: strings.Contains(string(out), "enabled")}
+			on := strings.Contains(string(out), "enabled")
+			return CheckResult{Installed: on, Detail: onOff(on)}
 		},
 		GoodWhen: true,
 	},
@@ -69,10 +75,12 @@ var SecurityChecks = []SecurityCheck{
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("launchctl", "list").Output()
 			if err != nil {
-				return NotInstalled()
+				return CheckResult{Detail: "unknown"}
 			}
 			sshRunning := strings.Contains(string(out), "com.openssh.sshd")
-			return CheckResult{Installed: !sshRunning}
+			// GoodWhen=true means we want SSH off, so Installed=!sshRunning.
+			// Detail reports the actual sshd state for clarity.
+			return CheckResult{Installed: !sshRunning, Detail: onOff(sshRunning)}
 		},
 		GoodWhen: true,
 	},
@@ -80,8 +88,16 @@ var SecurityChecks = []SecurityCheck{
 		Name:        "encrypted-dns",
 		Description: "DNS over HTTPS/TLS",
 		CheckFn: func() CheckResult {
-			return CheckResult{Installed: IsDNSProfileInstalled()}
+			on := IsDNSProfileInstalled()
+			return CheckResult{Installed: on, Detail: onOff(on)}
 		},
 		GoodWhen: true,
 	},
+}
+
+func onOff(on bool) string {
+	if on {
+		return "on"
+	}
+	return "off"
 }

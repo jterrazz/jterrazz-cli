@@ -402,6 +402,13 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 		boxes = append(boxes, components.SubsectionBox("Disk Usage", diskRows, colWidth))
 	}
 
+	// Updates box — pending macOS / brew updates, "is this machine drifting?"
+	// Sits next to Network/Tailscale/Services because that's the same scope:
+	// ambient state of the machine right now.
+	if updRows := m.buildCheckRows(m.getSubsectionItems(sections, "Environment", "Updates"), colWidth-4); len(updRows) > 0 {
+		boxes = append(boxes, components.SubsectionBox("Updates", updRows, colWidth))
+	}
+
 	if len(boxes) == 0 {
 		return ""
 	}
@@ -664,6 +671,16 @@ func (m Model) renderWorkspace(sections sectionMap, w int) string {
 // SETUP — boxes in masonry
 // ─────────────────────────────────────────────────────────────────────────────
 
+// renderConfig renders the Configuration tab. Boxes are organised under
+// intent-based group headers (Identity / Privacy & Security / Server /
+// Workspace) with the dotted-separator pattern shared with the Apps tab —
+// not by raw ScriptCategory, which produces a wall of fragmented boxes.
+//
+// The mapping from script names to boxes is explicit: it's the cheapest way
+// to reshape the layout without changing the data model. Adding a new script
+// means listing its name here too — there's no fallback bucket on purpose,
+// so a forgotten script shows up as missing in code review rather than
+// silently appearing in a "Misc" box.
 func (m Model) renderConfig(sections sectionMap, w int) string {
 	numCols := 3
 	if w < minColWidthResponsive*2 {
@@ -672,88 +689,151 @@ func (m Model) renderConfig(sections sectionMap, w int) string {
 		numCols = 2
 	}
 	colWidth := w / numCols
+	innerW := colWidth - 4
 
-	// Build check rows helper
 	buildCheckRows := func(items []status.Item) []string {
-		var rows []string
-		for _, item := range items {
-			if !item.Loaded {
-				rows = append(rows, " "+m.loadingIndicator()+" "+item.Name)
-			} else {
-				ok := item.Installed
-				if item.Kind == status.KindSecurity || item.Kind == status.KindIdentity {
-					ok = item.Installed == item.GoodWhen
-				}
-				badge := components.Badge(ok)
-				rows = append(rows, " "+badge+" "+item.Name)
-			}
-		}
-		return rows
+		return m.buildCheckRows(items, innerW)
 	}
 
-	// One box per ScriptCategory subsection that has loaded items, in
-	// canonical order. Network (the j remote alias) and Identity are
-	// special — they don't come from a Script Category.
-	categoryOrder := []string{
-		string(config.ScriptCategoryTerminal),
-		string(config.ScriptCategorySecurity),
-		string(config.ScriptCategoryEditor),
-		string(config.ScriptCategorySystem),
-		string(config.ScriptCategoryServer),
-		"Network",
+	// Sources.
+	configSub := func(name string) []status.Item {
+		return m.getSubsectionItems(sections, "Config", name)
 	}
-
-	var boxes []string
-	for _, sub := range categoryOrder {
-		rows := buildCheckRows(m.getSubsectionItems(sections, "Config", sub))
-		if len(rows) > 0 {
-			boxes = append(boxes, components.SubsectionBox(sub, rows, colWidth))
-		}
-	}
-
-	// Security box (from Environment/Health — KindSecurity items, system-level)
-	var secItems []status.Item
+	var systemSecurity []status.Item
 	for _, item := range m.getSubsectionItems(sections, "Environment", "Health") {
 		if item.Kind == status.KindSecurity {
-			secItems = append(secItems, item)
+			systemSecurity = append(systemSecurity, item)
 		}
 	}
-	if secRows := buildCheckRows(secItems); len(secRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Security", secRows, colWidth))
-	}
-
-	// Identity box
-	if idRows := buildCheckRows(m.getSubsectionItems(sections, "Config", "Identity")); len(idRows) > 0 {
-		boxes = append(boxes, components.SubsectionBox("Identity", idRows, colWidth))
-	}
-
-	if len(boxes) == 0 {
-		return ""
-	}
-
-	if numCols > len(boxes) {
-		numCols = len(boxes)
-	}
-
-	columns := make([][]string, numCols)
-	colHeights := make([]int, numCols)
-	for _, box := range boxes {
-		shortest := 0
-		for i := 1; i < numCols; i++ {
-			if colHeights[i] < colHeights[shortest] {
-				shortest = i
+	pick := func(items []status.Item, names ...string) []status.Item {
+		want := make(map[string]bool, len(names))
+		for _, n := range names {
+			want[n] = true
+		}
+		var out []status.Item
+		for _, item := range items {
+			if want[item.Name] {
+				out = append(out, item)
 			}
 		}
-		columns[shortest] = append(columns[shortest], box)
-		colHeights[shortest] += strings.Count(box, "\n") + 1
+		return out
 	}
 
-	var renderedCols []string
-	for _, col := range columns {
-		renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
+	securityScripts := configSub(string(config.ScriptCategorySecurity))
+
+	type configBox struct {
+		title string
+		items []status.Item
+	}
+	type configGroup struct {
+		label string
+		boxes []configBox
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
+	groups := []configGroup{
+		{"Identity", []configBox{
+			{"Identity", configSub("Identity")},
+			{"Auth", pick(securityScripts, "gpg", "ssh", "gh")},
+		}},
+		{"Privacy & Security", []configBox{
+			{"Hardening", systemSecurity},
+			{"Privacy", pick(securityScripts, "spotlight-exclude", "dns")},
+		}},
+		{"Server", []configBox{
+			{"Server", configSub(string(config.ScriptCategoryServer))},
+			{"Network", configSub("Network")},
+		}},
+		{"Workspace", []configBox{
+			{"Terminal", configSub(string(config.ScriptCategoryTerminal))},
+			{"Editor", configSub(string(config.ScriptCategoryEditor))},
+			{"System", configSub(string(config.ScriptCategorySystem))},
+		}},
+		{"Daemons", []configBox{
+			{"LaunchAgents", configSub("Daemons")},
+		}},
+	}
+
+	// Flat list of every item that will be rendered, used for the rollup.
+	var allItems []status.Item
+	for _, group := range groups {
+		for _, bx := range group.boxes {
+			allItems = append(allItems, bx.items...)
+		}
+	}
+
+	var b strings.Builder
+	if rollup := configHealthRollup(allItems, w); rollup != "" {
+		b.WriteString(rollup + "\n\n")
+	}
+	for _, group := range groups {
+		var rendered []string
+		for _, bx := range group.boxes {
+			rows := buildCheckRows(bx.items)
+			if len(rows) == 0 {
+				continue
+			}
+			rendered = append(rendered, components.SubsectionBox(bx.title, rows, colWidth))
+		}
+		if len(rendered) == 0 {
+			continue
+		}
+		b.WriteString(groupSeparator(group.label, w) + "\n")
+		b.WriteString(masonry(rendered, numCols) + "\n")
+	}
+	return b.String()
+}
+
+// configHealthRollup is the one-line summary above the Configuration tab:
+// "9 healthy   1 drift   ████████░░ 90%". GoodWhen-aware: a security check
+// with GoodWhen=true counts as healthy when Installed=true; an updates
+// check with GoodWhen=false counts as healthy when Installed=false.
+//
+// Returns empty while items are still loading so we don't paint a
+// misleading 0% bar before probes finish.
+func configHealthRollup(items []status.Item, w int) string {
+	var loaded, healthy int
+	for _, item := range items {
+		if !item.Loaded {
+			continue
+		}
+		loaded++
+		ok := item.Installed
+		if item.Kind == status.KindSecurity || item.Kind == status.KindIdentity {
+			ok = item.Installed == item.GoodWhen
+		}
+		if ok {
+			healthy++
+		}
+	}
+	if loaded == 0 {
+		return ""
+	}
+	drift := loaded - healthy
+
+	const barWidth = 24
+	ratio := float64(healthy) / float64(loaded)
+	filled := int(ratio*float64(barWidth) + 0.5)
+	if filled > barWidth {
+		filled = barWidth
+	}
+	bar := strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+
+	pct := fmt.Sprintf("%d%%", int(ratio*100+0.5))
+	left := fmt.Sprintf(" %s   %s",
+		theme.Success.Render(fmt.Sprintf("%d healthy", healthy)),
+		theme.Warning.Render(fmt.Sprintf("%d drift", drift)),
+	)
+	if drift == 0 {
+		left = fmt.Sprintf(" %s",
+			theme.Success.Render(fmt.Sprintf("%d healthy", healthy)),
+		)
+	}
+	right := theme.Muted.Render(bar) + " " + theme.Muted.Render(pct)
+	gap := w - components.VisibleLen(left) - components.VisibleLen(right) - 1
+	if gap < 1 {
+		gap = 1
+	}
+	return left + strings.Repeat(" ", gap) + right
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -811,55 +891,92 @@ func (m Model) renderTools(sections sectionMap, w int) string {
 		return boxes
 	}
 
-	// Masonry layout for a set of boxes
-	masonryLayout := func(boxes []string) string {
-		if len(boxes) == 0 {
-			return ""
-		}
-		nc := numCols
-		if nc > len(boxes) {
-			nc = len(boxes)
-		}
-		columns := make([][]string, nc)
-		colHeights := make([]int, nc)
-		for _, box := range boxes {
-			shortest := 0
-			for i := 1; i < nc; i++ {
-				if colHeights[i] < colHeights[shortest] {
-					shortest = i
-				}
-			}
-			columns[shortest] = append(columns[shortest], box)
-			colHeights[shortest] += strings.Count(box, "\n") + 1
-		}
-		var renderedCols []string
-		for _, col := range columns {
-			renderedCols = append(renderedCols, lipgloss.JoinVertical(lipgloss.Left, col...))
-		}
-		return lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...) + "\n"
-	}
-
 	var b strings.Builder
 	for _, group := range groups {
 		boxes := buildBoxes(group.categories)
 		if len(boxes) == 0 {
 			continue
 		}
-		// Dotted separator: Label · · · · · · · · · · · · · · ·
-		label := " " + group.label + " "
-		labelLen := len(label)
-		remaining := w - labelLen
-		if remaining < 2 {
-			remaining = 2
-		}
-		dots := remaining / 2
-		separator := theme.Muted.Render("·") + theme.SubSection.Render(label) +
-			theme.Muted.Render(strings.Repeat(" ·", dots))
-		b.WriteString(separator + "\n")
-		b.WriteString(masonryLayout(boxes))
+		b.WriteString(groupSeparator(group.label, w) + "\n")
+		b.WriteString(masonry(boxes, numCols) + "\n")
 	}
 
 	return b.String()
+}
+
+// buildCheckRows renders a list of check items as two-column rows:
+// " ✓ name" left, muted Detail right-aligned, with at least a one-cell gap.
+// GoodWhen-aware so a security check that should be off (GoodWhen=true,
+// Installed=false) still reads as healthy. Used by both the Configuration
+// tab and the System-tab Updates box.
+func (m Model) buildCheckRows(items []status.Item, innerW int) []string {
+	var rows []string
+	for _, item := range items {
+		if !item.Loaded {
+			rows = append(rows, " "+m.loadingIndicator()+" "+item.Name)
+			continue
+		}
+		ok := item.Installed
+		if item.Kind == status.KindSecurity || item.Kind == status.KindIdentity {
+			ok = item.Installed == item.GoodWhen
+		}
+		left := " " + components.Badge(ok) + " " + item.Name
+		if item.Detail == "" {
+			rows = append(rows, left)
+			continue
+		}
+		right := theme.Muted.Render(item.Detail)
+		gap := innerW - components.VisibleLen(left) - components.VisibleLen(right)
+		if gap < 1 {
+			gap = 1
+		}
+		rows = append(rows, left+strings.Repeat(" ", gap)+right)
+	}
+	return rows
+}
+
+// groupSeparator renders the dotted divider used to introduce a group of
+// boxes: "· Label · · · · · · ·". Shared between the Configuration and
+// Applications tabs so both feel like the same product.
+func groupSeparator(label string, width int) string {
+	text := " " + label + " "
+	remaining := width - len(text)
+	if remaining < 2 {
+		remaining = 2
+	}
+	dots := remaining / 2
+	return theme.Muted.Render("·") + theme.SubSection.Render(text) +
+		theme.Muted.Render(strings.Repeat(" ·", dots))
+}
+
+// masonry packs already-rendered boxes into `numCols` columns, always feeding
+// the next box into the currently-shortest column. Returns the joined output
+// without trailing newline; callers add their own spacing.
+func masonry(boxes []string, numCols int) string {
+	if len(boxes) == 0 {
+		return ""
+	}
+	nc := numCols
+	if nc > len(boxes) {
+		nc = len(boxes)
+	}
+	columns := make([][]string, nc)
+	colHeights := make([]int, nc)
+	for _, box := range boxes {
+		shortest := 0
+		for i := 1; i < nc; i++ {
+			if colHeights[i] < colHeights[shortest] {
+				shortest = i
+			}
+		}
+		columns[shortest] = append(columns[shortest], box)
+		colHeights[shortest] += strings.Count(box, "\n") + 1
+	}
+	rendered := make([]string, len(columns))
+	for i, col := range columns {
+		rendered[i] = lipgloss.JoinVertical(lipgloss.Left, col...)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
