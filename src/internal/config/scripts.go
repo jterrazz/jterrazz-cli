@@ -32,6 +32,11 @@ type Script struct {
 	Description string
 	Category    ScriptCategory
 
+	// Help is the long-form description shown in the j config detail panel.
+	// Wraps freely; aim for a short paragraph describing what the install does
+	// and why someone would want it.
+	Help string
+
 	// Role - if set, the script only applies to machines registered with that
 	// role. Items with no Role apply to every machine. Used to gate homelab-only
 	// configuration from the TUI on a dev box.
@@ -48,6 +53,11 @@ type Script struct {
 	// the TUI: pressing 'u' on an installed item runs this instead of InstallFn.
 	UninstallFn func() error
 
+	// Inputs - if non-empty, the TUI collects these values via a modal form
+	// before calling InstallFn. The script reads them via a side channel
+	// (typically env vars or a closure-captured map).
+	Inputs []ScriptInput
+
 	// ExecArgs - when set, the script runs via tea.ExecProcess (suspends TUI)
 	// Use for interactive commands that need full terminal control
 	ExecArgs []string
@@ -59,6 +69,28 @@ type Script struct {
 
 	// Dependencies
 	RequiresTool string // Tool that must be installed first (e.g., "openjdk")
+}
+
+// InputKind enumerates the supported modal input field types.
+type InputKind int
+
+const (
+	InputText     InputKind = iota // single-line text input
+	InputPassword                  // masked single-line input
+	InputSelect                    // pick one from Options
+	InputConfirm                   // yes/no
+)
+
+// ScriptInput describes a single value collected from the user before an
+// InstallFn runs. Rendered in a modal form by the j config TUI.
+type ScriptInput struct {
+	Name     string // key the InstallFn uses to look up the value
+	Label    string // primary prompt
+	Help     string // sub-text explaining the field
+	Kind     InputKind
+	Options  []string // values for InputSelect
+	Default  string   // pre-filled value (e.g. from an env var)
+	Validate func(string) error
 }
 
 // MatchesRole reports whether the script applies to the given machine role.
@@ -86,14 +118,16 @@ var Scripts = []Script{
 		Name:        "hushlogin",
 		Description: "Silence terminal login message",
 		Category:    ScriptCategoryTerminal,
+		Help:        "Creates ~/.hushlogin so macOS suppresses the 'Last login:' banner each time you open a new terminal.",
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
-		InstallFn:       runHushlogin,
+		InstallFn:   runHushlogin,
 	},
 	{
 		Name:         "ghostty",
 		Description:  "Install Ghostty terminal config",
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "ghostty",
+		Help:         "Drops the repo's Ghostty config and two Catppuccin themes (espresso, latte) into ~/.config/ghostty.",
 		CheckFn: checkFileExists(
 			os.Getenv("HOME")+"/.config/ghostty/config",
 			"~/.config/ghostty/config"),
@@ -104,8 +138,9 @@ var Scripts = []Script{
 		Description:  "Install tmux config",
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "tmux",
+		Help:         "Installs ~/.tmux.conf with sensible bindings; reloads any running tmux session.",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
-		InstallFn:        runTmuxConfig,
+		InstallFn:    runTmuxConfig,
 	},
 
 	// ==========================================================================
@@ -117,6 +152,7 @@ var Scripts = []Script{
 		Category:     ScriptCategorySecurity,
 		RequiresTool: "gpg",
 		Interactive:  true,
+		Help:         "Generates an ed25519 GPG key for the configured git email and wires it into git so all future commits are signed.",
 		CheckFn: func() CheckResult {
 			out, err := exec.Command("git", "config", "--global", "commit.gpgsign").Output()
 			if err != nil {
@@ -134,14 +170,16 @@ var Scripts = []Script{
 		Description: "Generate SSH key with Keychain integration",
 		Category:    ScriptCategorySecurity,
 		Interactive: true,
+		Help:        "Generates an ed25519 SSH key, stores its passphrase in macOS Keychain, and prints the public key for you to paste into GitHub.",
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
-		InstallFn:       runSSHSetup,
+		InstallFn:   runSSHSetup,
 	},
 	{
 		Name:         "gh",
 		Description:  "Authenticate GitHub CLI",
 		Category:     ScriptCategorySecurity,
 		RequiresTool: "gh",
+		Help:         "Runs `gh auth login` against github.com via the browser, configures git to push over SSH.",
 		CheckFn: func() CheckResult {
 			if err := exec.Command("gh", "auth", "status").Run(); err != nil {
 				return CheckResult{}
@@ -154,6 +192,7 @@ var Scripts = []Script{
 		Name:        "spotlight-exclude",
 		Description: "Exclude ~/Developer from Spotlight (guided — opens Settings)",
 		Category:    ScriptCategorySecurity,
+		Help:        "macOS doesn't expose Spotlight Privacy via CLI. This opens System Settings → Spotlight → Search Privacy and you drop ~/Developer onto the list manually.",
 		CheckFn: func() CheckResult {
 			if isSpotlightExcluded(os.Getenv("HOME") + "/Developer") {
 				return InstalledWithDetail("~/Developer in Spotlight Privacy list")
@@ -166,6 +205,7 @@ var Scripts = []Script{
 		Name:        "dns",
 		Description: "Encrypted DNS via Quad9 (DoH)",
 		Category:    ScriptCategorySecurity,
+		Help:        "Generates a configuration profile for DNS-over-HTTPS via Quad9 (9.9.9.9) and opens it in System Settings for installation.",
 		CheckFn: func() CheckResult {
 			if IsDNSProfileInstalled() {
 				return InstalledWithDetail("Quad9 DoH")
@@ -182,8 +222,9 @@ var Scripts = []Script{
 		Description:  "Install Zed editor config",
 		Category:     ScriptCategoryEditor,
 		RequiresTool: "zed",
+		Help:         "Installs ~/.config/zed/settings.json from the repo (themes, keymaps, font).",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
-		InstallFn:        runZedConfig,
+		InstallFn:    runZedConfig,
 	},
 
 	// ==========================================================================
@@ -194,6 +235,7 @@ var Scripts = []Script{
 		Description:  "Configure JAVA_HOME in shell profile",
 		Category:     ScriptCategorySystem,
 		RequiresTool: "openjdk",
+		Help:         "Appends a JAVA_HOME export to ~/.zshrc pointing at /opt/homebrew/opt/openjdk so java/javac are on PATH.",
 		CheckFn: func() CheckResult {
 			javaHome := "/opt/homebrew/opt/openjdk"
 			if _, err := os.Stat(javaHome + "/bin/java"); err == nil {
@@ -208,6 +250,7 @@ var Scripts = []Script{
 		Description:  "Initialize per-user nvm state (~/.nvm)",
 		Category:     ScriptCategorySystem,
 		RequiresTool: "nvm",
+		Help:         "Creates the ~/.nvm directory so the shell loader can manage Node versions per user.",
 		CheckFn: func() CheckResult {
 			if _, err := os.Stat(os.Getenv("HOME") + "/.nvm"); err == nil {
 				return InstalledWithDetail("~/.nvm exists")
@@ -220,13 +263,15 @@ var Scripts = []Script{
 		Name:        "dock-reset",
 		Description: "Reset dock to system defaults",
 		Category:    ScriptCategorySystem,
-		InstallFn:       runDockReset,
+		Help:        "`defaults delete com.apple.dock` + killall Dock — restores the macOS default dock layout.",
+		InstallFn:   runDockReset,
 	},
 	{
 		Name:        "dock-spacer",
 		Description: "Add a small spacer tile to the dock",
 		Category:    ScriptCategorySystem,
-		InstallFn:       runDockSpacer,
+		Help:        "Adds a small spacer tile (transparent gap) to the Dock for visual grouping.",
+		InstallFn:   runDockSpacer,
 	},
 
 	// ==========================================================================
@@ -266,6 +311,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Category:    ScriptCategoryHomelab,
 			Role:        RoleHomelab,
 			Interactive: true,
+			Help:        "Bypasses loginwindow at boot/restart so an agent can drive the Aqua session without anyone at the keyboard. Writes /etc/kcpassword via the public XOR cipher (the password is never logged).",
 			CheckFn:     a.AutologinCheck,
 			InstallFn:   a.AutologinInstall,
 			UninstallFn: a.AutologinUninstall,
@@ -276,6 +322,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Category:    ScriptCategoryHomelab,
 			Role:        RoleHomelab,
 			Interactive: true,
+			Help:        "Applies a homelab pmset profile: never sleep, restart on power return, no hibernate, wake on LAN. Uninstall resets pmset to macOS defaults.",
 			CheckFn:     a.PowerCheck,
 			InstallFn:   a.PowerInstall,
 			UninstallFn: a.PowerUninstall,
@@ -286,6 +333,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Category:    ScriptCategoryHomelab,
 			Role:        RoleHomelab,
 			Interactive: true,
+			Help:        "Per-user LaunchAgent that locks the screen ~20s after auto-login. Keeps the GUI session alive (so agent runtimes work) while the screen stays physically protected.",
 			CheckFn:     a.LockAfterLoginCheck,
 			InstallFn:   a.LockAfterLoginInstall,
 			UninstallFn: a.LockAfterLoginUninstall,
@@ -296,6 +344,7 @@ func RegisterHomelabActions(a HomelabActions) {
 			Category:    ScriptCategoryHomelab,
 			Role:        RoleHomelab,
 			Interactive: true,
+			Help:        "Enables Remote Login (sshd) and adds jterrazz.agent to the access_ssh group. The FileVault remote-unlock toggle still has to be flipped manually in System Settings → Privacy & Security.",
 			CheckFn:     a.SshdCheck,
 			InstallFn:   a.SshdInstall,
 			UninstallFn: a.SshdUninstall,
