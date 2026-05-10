@@ -92,18 +92,54 @@ j clean docker trash     # Clean specific items
 
 ### `j config`
 
-Interactive TUI for everything that configures the local machine. Each item shows whether it's currently applied via a check function; toggleable items run their disable action when already configured.
+Interactive TUI for configuring the local machine. Sections are collapsible, items show their current state, and the footer always tells you which keys do what for the item under the cursor.
 
-Categories:
+```
+ j config                                                self: mac-mini · homelab
+ ──────────────────────────────────────────────────────────────────────────────
+ ▾ Terminal               3/3
+   ✓ ghostty
+   ✓ tmux
+   ✓ hushlogin
+
+ ▸ Security               4/5
+ ▾ Editor                 1/1
+   ✓ zed
+
+ ▸ System                 2/4
+ ▾ Homelab                2/4
+   ✓ autologin
+ ▶ ✗ power
+   ✓ lock-after-login
+   ✗ sshd
+ ──────────────────────────────────────────────────────────────────────────────
+ ▶ power |  i install   space details
+```
+
+Categories (Homelab only appears when the current machine is registered as `homelab`):
 
 - **Terminal** — ghostty, tmux, hushlogin
 - **Security** — GPG commit signing, SSH keygen, GitHub CLI auth, encrypted DNS (Quad9), Spotlight exclusion
 - **Editor** — Zed config
-- **System** — JAVA_HOME, dock reset/spacer
-- **Homelab** — auto-login, power policy, lock-after-login, sshd (visible only when the current machine is registered as `homelab`)
-- **Navigation** — Tailscale (`remote`), AI skills
+- **System** — JAVA_HOME, nvm, dock reset/spacer
+- **Homelab** — autologin, power policy, lock-after-login, sshd
 
-Homelab items are toggleable: pressing enter on an enabled item disables it. They prompt for sudo via the released TTY when needed; set `AGENT_PASSWORD` in your environment to skip the auto-login prompt.
+Keys:
+
+| Key | Action |
+|---|---|
+| `↑` `↓` `j` `k` | navigate |
+| `tab` | collapse/expand current section |
+| `space` | toggle the inline detail panel for the current item |
+| `i` | install the current item (only when not yet installed) |
+| `u` | uninstall (only for toggleable items that are currently installed) |
+| `q` `esc` | quit |
+
+Items that need extra inputs (e.g. autologin's password) open a modal form before installing — built on [Charm's huh](https://github.com/charmbracelet/huh). Set `AGENT_PASSWORD` in your environment to pre-fill the autologin password field.
+
+### `j skills`
+
+Interactive TUI to manage AI agent skills (install, list, remove). Requires the `skills` CLI on PATH.
 
 ### `j remote`
 
