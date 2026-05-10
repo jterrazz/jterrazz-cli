@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -21,6 +22,12 @@ type Model struct {
 	sections []Section
 	cursor   cursorPos
 	expanded map[string]bool
+
+	// checkCache stores the result of each Script's CheckFn so we don't
+	// fork+exec a sub-process (defaults, pmset, systemsetup, gh auth
+	// status, …) on every render. Refreshed at startup and after each
+	// install/uninstall completes — never during navigation.
+	checkCache map[string]config.CheckResult
 
 	selfAlias string
 	selfRole  config.Role
@@ -48,8 +55,8 @@ type cursorPos struct {
 	item    int
 }
 
-// NewModel constructs a fresh Model with all sections expanded and the
-// cursor on the first item.
+// NewModel constructs a fresh Model with all sections expanded, the
+// cursor on the first item, and a fresh check cache.
 func NewModel() Model {
 	alias, m, ok := config.SelfMachine()
 	role := config.Role("")
@@ -61,13 +68,77 @@ func NewModel() Model {
 	}
 
 	sections := buildSections(role)
-	return Model{
-		sections:  sections,
-		cursor:    firstItemCursor(sections),
-		expanded:  map[string]bool{},
-		selfAlias: alias,
-		selfRole:  role,
+	model := Model{
+		sections:   sections,
+		cursor:     firstItemCursor(sections),
+		expanded:   map[string]bool{},
+		checkCache: map[string]config.CheckResult{},
+		selfAlias:  alias,
+		selfRole:   role,
 	}
+	model.refreshCheckCache()
+	return model
+}
+
+// refreshCheckCache invokes every Script's CheckFn once (in parallel) and
+// stores the results. Called at startup and after each install/uninstall
+// lifecycle. CheckFn implementations typically fork+exec macOS commands
+// (10-50ms each), so we deliberately avoid calling them on every render
+// frame and fan them out across goroutines on the rare invalidations.
+func (m *Model) refreshCheckCache() {
+	if m.checkCache == nil {
+		m.checkCache = map[string]config.CheckResult{}
+	}
+
+	type result struct {
+		name string
+		cr   config.CheckResult
+	}
+	var pending []*config.Script
+	for _, sec := range m.sections {
+		for _, s := range sec.Scripts {
+			if s.CheckFn != nil {
+				pending = append(pending, s)
+			}
+		}
+	}
+	if len(pending) == 0 {
+		return
+	}
+	results := make([]result, len(pending))
+	var wg sync.WaitGroup
+	wg.Add(len(pending))
+	for i, s := range pending {
+		go func(i int, s *config.Script) {
+			defer wg.Done()
+			results[i] = result{name: s.Name, cr: s.CheckFn()}
+		}(i, s)
+	}
+	wg.Wait()
+	for _, r := range results {
+		m.checkCache[r.name] = r.cr
+	}
+}
+
+// cachedCheck returns the cached CheckResult for s, falling back to a
+// live call if the script isn't in the cache (shouldn't normally happen).
+func (m Model) cachedCheck(s *config.Script) config.CheckResult {
+	if s == nil {
+		return config.CheckResult{}
+	}
+	if r, ok := m.checkCache[s.Name]; ok {
+		return r
+	}
+	if s.CheckFn != nil {
+		return s.CheckFn()
+	}
+	return config.CheckResult{}
+}
+
+// installed reports whether the script is currently installed, reading
+// from the cache.
+func (m Model) installed(s *config.Script) bool {
+	return m.cachedCheck(s).Installed
 }
 
 // Init implements tea.Model.
@@ -99,20 +170,27 @@ func (m Model) currentScript() *config.Script {
 	return sec.Scripts[m.cursor.item]
 }
 
-// isInstalled reports the current install state of a script via its CheckFn.
-// Scripts without a CheckFn are treated as "not installed" — they have no
-// observable state, so the only verb that makes sense is install.
-func isInstalled(s *config.Script) bool {
-	if s == nil || s.CheckFn == nil {
-		return false
+// sectionInstalledCount returns how many of the section's scripts are
+// currently installed, reading from the check cache. Mirrors the semantic
+// of Section.installedCount but never re-runs CheckFn during render.
+func (m Model) sectionInstalledCount(sec Section) (installed, total int) {
+	for _, sc := range sec.Scripts {
+		if sc.CheckFn == nil {
+			continue
+		}
+		total++
+		if m.installed(sc) {
+			installed++
+		}
 	}
-	return s.CheckFn().Installed
+	return
 }
 
 // rebuildSections re-runs buildSections (after an install/uninstall changed
-// state) and clamps the cursor onto a valid item.
+// state), refreshes the check cache, and clamps the cursor onto a valid item.
 func (m *Model) rebuildSections() {
 	m.sections = buildSections(m.selfRole)
+	m.refreshCheckCache()
 	m.clampCursor()
 }
 

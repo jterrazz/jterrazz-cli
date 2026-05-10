@@ -109,7 +109,7 @@ func (m Model) renderSectionHeader(s Section) string {
 	if s.Collapsed {
 		caret = "▸"
 	}
-	installed, total := s.installedCount()
+	installed, total := m.sectionInstalledCount(s)
 	var count string
 	if total > 0 {
 		count = fmt.Sprintf("%d/%d", installed, total)
@@ -132,7 +132,7 @@ func (m Model) renderItem(s *config.Script, sectionIdx, itemIdx int) string {
 	if m.busy && m.cursor.section == sectionIdx && m.cursor.item == itemIdx {
 		icon = iconBusy
 		iconStyle = stateMissingStyle
-	} else if isInstalled(s) {
+	} else if m.installed(s) {
 		icon = iconInstalled
 		iconStyle = stateInstalledStyle
 	}
@@ -143,7 +143,7 @@ func (m Model) renderItem(s *config.Script, sectionIdx, itemIdx int) string {
 	}
 
 	nameStyle := itemNameStyle
-	if !isInstalled(s) {
+	if !m.installed(s) {
 		nameStyle = itemNameMutedStyle
 	}
 
@@ -186,10 +186,10 @@ func (m Model) renderFooter() string {
 	}
 
 	var hints []string
-	if !isInstalled(s) && s.InstallFn != nil {
+	if !m.installed(s) && s.InstallFn != nil {
 		hints = append(hints, footerKey("i", "install"))
 	}
-	if isInstalled(s) && s.UninstallFn != nil {
+	if m.installed(s) && s.UninstallFn != nil {
 		hints = append(hints, footerKey("u", "uninstall"))
 	}
 	detailLabel := "details"

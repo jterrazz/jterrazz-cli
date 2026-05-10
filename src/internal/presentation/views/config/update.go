@@ -144,7 +144,7 @@ func (m Model) startInstall() (tea.Model, tea.Cmd) {
 	if s == nil || s.InstallFn == nil {
 		return m, nil
 	}
-	if isInstalled(s) {
+	if m.installed(s) {
 		return m, nil
 	}
 	if len(s.Inputs) > 0 {
@@ -166,7 +166,7 @@ func (m Model) startUninstall() (tea.Model, tea.Cmd) {
 	if s == nil || s.UninstallFn == nil {
 		return m, nil
 	}
-	if !isInstalled(s) {
+	if !m.installed(s) {
 		return m, nil
 	}
 	m.busy = true
