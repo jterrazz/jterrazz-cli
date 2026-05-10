@@ -4,7 +4,7 @@ import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/domain/skill"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	setupview "github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/setup"
+	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/skills"
 	"github.com/spf13/cobra"
 )
 
@@ -16,8 +16,8 @@ var skillsCmd = &cobra.Command{
 			print.Error("skills CLI not installed. Run: npm install -g skills")
 			return
 		}
-		setupview.InitSkillsState()
-		components.RunOrExit(setupview.SkillsConfig())
+		skillsview.InitSkillsState()
+		components.RunOrExit(skillsview.SkillsConfig())
 	},
 }
 

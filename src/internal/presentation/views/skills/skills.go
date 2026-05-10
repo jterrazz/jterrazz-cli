@@ -1,4 +1,4 @@
-package setup
+package skillsview
 
 import (
 	"strconv"

@@ -6,7 +6,7 @@ import (
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/components"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
-	setupview "github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/setup"
+	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/views/remote"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +22,8 @@ var remoteConfigCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Interactive remote access configuration",
 	Run: func(cmd *cobra.Command, args []string) {
-		setupview.InitRemoteState()
-		components.RunOrExit(setupview.RemoteConfig())
+		remoteview.InitRemoteState()
+		components.RunOrExit(remoteview.RemoteConfig())
 	},
 }
 
