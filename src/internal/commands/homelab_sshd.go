@@ -9,7 +9,7 @@ import (
 
 const sshAccessGroup = "com.apple.access_ssh"
 
-func enableSshd() error {
+func installSshd() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func enableSshd() error {
 	return nil
 }
 
-func disableSshd() error {
+func uninstallSshd() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -86,9 +86,9 @@ func disableSshd() error {
 	return nil
 }
 
-// checkSshdEnabled reports whether Remote Login is on AND the agent user is in
+// checkSshdInstalled reports whether Remote Login is on AND the agent user is in
 // the access_ssh group. Used as a CheckFn for the j config TUI.
-func checkSshdEnabled() config.CheckResult {
+func checkSshdInstalled() config.CheckResult {
 	out, err := runQuiet("/usr/sbin/systemsetup", "-getremotelogin")
 	if err != nil || !strings.Contains(strings.ToLower(out), "on") {
 		return config.CheckResult{}

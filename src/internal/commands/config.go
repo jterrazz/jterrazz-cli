@@ -23,8 +23,8 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 }
 
-// runScript runs a script by name. For toggleable items (DisableFn != nil),
-// runs DisableFn when the item is currently installed, RunFn otherwise.
+// runScript runs a script by name. For toggleable items (UninstallFn != nil),
+// runs UninstallFn when the item is currently installed, InstallFn otherwise.
 func runScript(name string) {
 	script := config.GetScriptByName(name)
 	if script == nil {
@@ -32,11 +32,11 @@ func runScript(name string) {
 		return
 	}
 
-	fn := script.RunFn
-	verb := "run"
-	if script.DisableFn != nil && script.CheckFn != nil && script.CheckFn().Installed {
-		fn = script.DisableFn
-		verb = "disable"
+	fn := script.InstallFn
+	verb := "install"
+	if script.UninstallFn != nil && script.CheckFn != nil && script.CheckFn().Installed {
+		fn = script.UninstallFn
+		verb = "uninstall"
 	}
 	if fn == nil {
 		print.Error("No runner for script: " + name)

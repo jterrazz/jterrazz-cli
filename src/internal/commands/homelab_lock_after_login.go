@@ -20,7 +20,7 @@ const (
 	lockAfterLoginLogDir = "/Users/jterrazz.agent/.openclaw/logs"
 )
 
-func enableLockAfterLogin() error {
+func installLockAfterLogin() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func enableLockAfterLogin() error {
 	return nil
 }
 
-func disableLockAfterLogin() error {
+func uninstallLockAfterLogin() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}

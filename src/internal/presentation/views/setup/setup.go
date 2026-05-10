@@ -57,17 +57,17 @@ func scriptsForCurrentRole() []config.Script {
 }
 
 // effectiveAction returns (fn, foundInstalled). If the script is currently
-// installed and has a DisableFn, the disable action is returned. Otherwise the
-// install/enable action (RunFn) is returned. Used both by the TUI and by the
+// installed and has a UninstallFn, the disable action is returned. Otherwise the
+// install/enable action (InstallFn) is returned. Used both by the TUI and by the
 // non-interactive runScript callback so toggle behaviour is consistent.
 func effectiveAction(s *config.Script) (fn func() error, isToggleOff bool) {
 	if s == nil {
 		return nil, false
 	}
-	if s.DisableFn != nil && s.CheckFn != nil && s.CheckFn().Installed {
-		return s.DisableFn, true
+	if s.UninstallFn != nil && s.CheckFn != nil && s.CheckFn().Installed {
+		return s.UninstallFn, true
 	}
-	return s.RunFn, false
+	return s.InstallFn, false
 }
 
 // BuildItems builds the setup menu items
@@ -218,7 +218,7 @@ func HandleSelect(index int, item components.Item, runScript func(string)) tea.C
 			})
 		}
 
-		// Pick the right action (RunFn or DisableFn) based on current state.
+		// Pick the right action (InstallFn or UninstallFn) based on current state.
 		fn, _ := effectiveAction(script)
 
 		// Interactive: suspend the TUI so child commands can prompt the user

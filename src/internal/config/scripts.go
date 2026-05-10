@@ -41,19 +41,19 @@ type Script struct {
 	// If nil, script is "run-once" with no checkable state
 	CheckFn func() CheckResult
 
-	// Run - execute the script (also acts as "enable" for toggleable items)
-	RunFn func() error
+	// InstallFn - perform the installation/configuration action.
+	InstallFn func() error
 
-	// DisableFn - if set, the item is toggleable. When already configured, the
-	// TUI runs DisableFn instead of RunFn.
-	DisableFn func() error
+	// UninstallFn - inverse of InstallFn. When set, the item is toggleable in
+	// the TUI: pressing 'u' on an installed item runs this instead of InstallFn.
+	UninstallFn func() error
 
 	// ExecArgs - when set, the script runs via tea.ExecProcess (suspends TUI)
 	// Use for interactive commands that need full terminal control
 	ExecArgs []string
 
-	// Interactive - when true, RunFn is wrapped in tea.Exec so the TUI is
-	// released while it runs. Required for any RunFn that prompts the user
+	// Interactive - when true, InstallFn is wrapped in tea.Exec so the TUI is
+	// released while it runs. Required for any InstallFn that prompts the user
 	// (passphrase entry, GPG key generation, etc.).
 	Interactive bool
 
@@ -87,7 +87,7 @@ var Scripts = []Script{
 		Description: "Silence terminal login message",
 		Category:    ScriptCategoryTerminal,
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.hushlogin", "~/.hushlogin"),
-		RunFn:       runHushlogin,
+		InstallFn:       runHushlogin,
 	},
 	{
 		Name:         "ghostty",
@@ -97,7 +97,7 @@ var Scripts = []Script{
 		CheckFn: checkFileExists(
 			os.Getenv("HOME")+"/.config/ghostty/config",
 			"~/.config/ghostty/config"),
-		RunFn: runGhosttyConfig,
+		InstallFn: runGhosttyConfig,
 	},
 	{
 		Name:         "tmux",
@@ -105,7 +105,7 @@ var Scripts = []Script{
 		Category:     ScriptCategoryTerminal,
 		RequiresTool: "tmux",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
-		RunFn:        runTmuxConfig,
+		InstallFn:        runTmuxConfig,
 	},
 
 	// ==========================================================================
@@ -127,7 +127,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		RunFn: runGPGSetup,
+		InstallFn: runGPGSetup,
 	},
 	{
 		Name:        "ssh",
@@ -135,7 +135,7 @@ var Scripts = []Script{
 		Category:    ScriptCategorySecurity,
 		Interactive: true,
 		CheckFn:     checkFileExists(os.Getenv("HOME")+"/.ssh/id_ed25519", "~/.ssh/id_ed25519"),
-		RunFn:       runSSHSetup,
+		InstallFn:       runSSHSetup,
 	},
 	{
 		Name:         "gh",
@@ -160,7 +160,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		RunFn: runSpotlightExclude,
+		InstallFn: runSpotlightExclude,
 	},
 	{
 		Name:        "dns",
@@ -172,7 +172,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		RunFn: runDNSEncrypt,
+		InstallFn: runDNSEncrypt,
 	},
 	// ==========================================================================
 	// Editor
@@ -183,7 +183,7 @@ var Scripts = []Script{
 		Category:     ScriptCategoryEditor,
 		RequiresTool: "zed",
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.config/zed/settings.json", "~/.config/zed/settings.json"),
-		RunFn:        runZedConfig,
+		InstallFn:        runZedConfig,
 	},
 
 	// ==========================================================================
@@ -201,7 +201,7 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		RunFn: runJavaHome,
+		InstallFn: runJavaHome,
 	},
 	{
 		Name:         "nvm",
@@ -214,46 +214,46 @@ var Scripts = []Script{
 			}
 			return CheckResult{}
 		},
-		RunFn: runNvmSetup,
+		InstallFn: runNvmSetup,
 	},
 	{
 		Name:        "dock-reset",
 		Description: "Reset dock to system defaults",
 		Category:    ScriptCategorySystem,
-		RunFn:       runDockReset,
+		InstallFn:       runDockReset,
 	},
 	{
 		Name:        "dock-spacer",
 		Description: "Add a small spacer tile to the dock",
 		Category:    ScriptCategorySystem,
-		RunFn:       runDockSpacer,
+		InstallFn:       runDockSpacer,
 	},
 
 	// ==========================================================================
 	// Homelab — only visible on machines registered with role=homelab
 	// ==========================================================================
-	// CheckFn / RunFn / DisableFn live in src/internal/commands/machine_config_*.go
+	// CheckFn / InstallFn / UninstallFn live in src/internal/commands/machine_config_*.go
 	// and are wired up via config.RegisterHomelabActions at init time so this file
 	// stays free of macOS-specific logic.
 }
 
-// HomelabActions is the set of enable/disable/check functions provided by the
+// HomelabActions is the set of install/uninstall/check functions provided by the
 // commands package for the four homelab-only scripts. The commands package wires
 // these in via RegisterHomelabActions so this file (and the config package as a
 // whole) stays free of macOS-specific imports.
 type HomelabActions struct {
-	AutologinEnable     func() error
-	AutologinDisable    func() error
-	AutologinCheck      func() CheckResult
-	PowerEnable         func() error
-	PowerDisable        func() error
-	PowerCheck          func() CheckResult
-	LockAfterLoginEnable  func() error
-	LockAfterLoginDisable func() error
-	LockAfterLoginCheck   func() CheckResult
-	SshdEnable          func() error
-	SshdDisable         func() error
-	SshdCheck           func() CheckResult
+	AutologinInstall      func() error
+	AutologinUninstall    func() error
+	AutologinCheck        func() CheckResult
+	PowerInstall          func() error
+	PowerUninstall        func() error
+	PowerCheck            func() CheckResult
+	LockAfterLoginInstall   func() error
+	LockAfterLoginUninstall func() error
+	LockAfterLoginCheck     func() CheckResult
+	SshdInstall           func() error
+	SshdUninstall         func() error
+	SshdCheck             func() CheckResult
 }
 
 // RegisterHomelabActions appends the four homelab Scripts using the provided
@@ -267,8 +267,8 @@ func RegisterHomelabActions(a HomelabActions) {
 			Role:        RoleHomelab,
 			Interactive: true,
 			CheckFn:     a.AutologinCheck,
-			RunFn:       a.AutologinEnable,
-			DisableFn:   a.AutologinDisable,
+			InstallFn:   a.AutologinInstall,
+			UninstallFn: a.AutologinUninstall,
 		},
 		Script{
 			Name:        "power",
@@ -277,8 +277,8 @@ func RegisterHomelabActions(a HomelabActions) {
 			Role:        RoleHomelab,
 			Interactive: true,
 			CheckFn:     a.PowerCheck,
-			RunFn:       a.PowerEnable,
-			DisableFn:   a.PowerDisable,
+			InstallFn:   a.PowerInstall,
+			UninstallFn: a.PowerUninstall,
 		},
 		Script{
 			Name:        "lock-after-login",
@@ -287,8 +287,8 @@ func RegisterHomelabActions(a HomelabActions) {
 			Role:        RoleHomelab,
 			Interactive: true,
 			CheckFn:     a.LockAfterLoginCheck,
-			RunFn:       a.LockAfterLoginEnable,
-			DisableFn:   a.LockAfterLoginDisable,
+			InstallFn:   a.LockAfterLoginInstall,
+			UninstallFn: a.LockAfterLoginUninstall,
 		},
 		Script{
 			Name:        "sshd",
@@ -297,8 +297,8 @@ func RegisterHomelabActions(a HomelabActions) {
 			Role:        RoleHomelab,
 			Interactive: true,
 			CheckFn:     a.SshdCheck,
-			RunFn:       a.SshdEnable,
-			DisableFn:   a.SshdDisable,
+			InstallFn:   a.SshdInstall,
+			UninstallFn: a.SshdUninstall,
 		},
 	)
 }
@@ -349,7 +349,7 @@ func copyRepoConfig(repoRelPath, destPath string) error {
 	return nil
 }
 
-// makeConfigInstaller creates a RunFn that copies a repo config file to a destination.
+// makeConfigInstaller creates a InstallFn that copies a repo config file to a destination.
 func makeConfigInstaller(label, repoRelPath, destPath string) func() error {
 	return func() error {
 		fmt.Println(out.Cyan("Setting up " + label + " config..."))

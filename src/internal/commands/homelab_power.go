@@ -24,7 +24,7 @@ var powerHardenSettings = [][2]string{
 	{"womp", "1"},
 }
 
-func enablePowerHarden() error {
+func installPower() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func enablePowerHarden() error {
 	return nil
 }
 
-func disablePowerHarden() error {
+func uninstallPower() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -80,9 +80,9 @@ func disablePowerHarden() error {
 	return nil
 }
 
-// checkPowerHardened reports whether all powerHardenSettings are currently
+// checkPowerInstalled reports whether all powerHardenSettings are currently
 // applied. Used as a CheckFn for the j config TUI.
-func checkPowerHardened() config.CheckResult {
+func checkPowerInstalled() config.CheckResult {
 	out, err := runQuiet("/usr/bin/pmset", "-g", "custom")
 	if err != nil {
 		return config.CheckResult{}

@@ -26,9 +26,9 @@ func statusAutologin() error {
 	return nil
 }
 
-// enableAutologin enables FileVault-aware GUI auto-login for the agent user.
+// installAutologin enables FileVault-aware GUI auto-login for the agent user.
 // Returns an error instead of os.Exit so it can be embedded in a TUI.
-func enableAutologin() error {
+func installAutologin() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -111,8 +111,8 @@ func enableAutologin() error {
 	return nil
 }
 
-// disableAutologin disables auto-login and clears /etc/kcpassword.
-func disableAutologin() error {
+// uninstallAutologin disables auto-login and clears /etc/kcpassword.
+func uninstallAutologin() error {
 	if err := requireDarwin(); err != nil {
 		return err
 	}
@@ -132,9 +132,9 @@ func disableAutologin() error {
 	return nil
 }
 
-// checkAutologinEnabled reports whether GUI auto-login is currently set up for
+// checkAutologinInstalled reports whether GUI auto-login is currently set up for
 // the agent user. Used as a CheckFn for the j config TUI.
-func checkAutologinEnabled() config.CheckResult {
+func checkAutologinInstalled() config.CheckResult {
 	out, err := runQuiet("/usr/bin/defaults", "read", "/Library/Preferences/com.apple.loginwindow", "autoLoginUser")
 	if err != nil || strings.TrimSpace(out) != autologinTargetUser {
 		return config.CheckResult{}
