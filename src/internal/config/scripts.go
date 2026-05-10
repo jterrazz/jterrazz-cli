@@ -213,7 +213,7 @@ var Scripts = []Script{
 		Name:        "spotlight-exclude",
 		Description: "Exclude ~/Developer from Spotlight (guided — opens Settings)",
 		Category:    ScriptCategorySecurity,
-		Help:        "macOS doesn't expose Spotlight Privacy via CLI (Tahoe moved it behind a private framework). This opens System Settings → Spotlight → Search Privacy and you drop ~/Developer onto the list manually. We then write ~/.jterrazz/spotlight-exclude.done so future checks see ✓ — delete that file if you ever remove the exclusion.",
+		Help:        "macOS Tahoe stores the Spotlight Privacy list in a root-only plist (/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist), so we can't read it from the TUI without sudo on every render. This opens System Settings → Spotlight → Search Privacy and you drop ~/Developer onto the list manually. Then we touch ~/.jterrazz/spotlight-exclude.done so future checks see ✓ — delete that file if you ever remove the exclusion.",
 		CheckFn: func() CheckResult {
 			if isSpotlightExcluded(os.Getenv("HOME") + "/Developer") {
 				return InstalledWithDetail("~/Developer in Spotlight Privacy list")
@@ -653,33 +653,27 @@ Host *
 }
 
 // spotlightExcludeMarkerPath is the sentinel file written by the install
-// script. macOS Tahoe (26+) no longer exposes the Spotlight Privacy list
-// through any documented CLI surface — the legacy
-// `defaults read com.apple.Spotlight Exclusions` call returns "does not
-// exist", and the actual storage lives behind a private framework. We
-// fall back to "did the user run the install at least once?" semantics:
+// script.
+//
+// On Tahoe (26+), the Spotlight Privacy list lives in
+// /System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist — root-only,
+// so a TUI CheckFn can't read it without prompting for sudo on every render.
+// And the legacy `defaults read com.apple.Spotlight Exclusions` returns
+// "does not exist" (the key was moved out of that domain).
+//
+// So we fall back to "did the user run the install at least once?":
 // the script touches this file after opening System Settings, on the
 // assumption that the user followed through with the manual step.
-//
-// Pre-Tahoe macOS still works through the defaults check below as a
-// fallback, so existing installs detect cleanly without needing the
-// marker.
+// If they ever remove ~/Developer from Privacy, they can rm this marker.
 func spotlightExcludeMarkerPath() string {
 	return filepath.Join(os.Getenv("HOME"), ".jterrazz", "spotlight-exclude.done")
 }
 
-// isSpotlightExcluded reports whether path is on the user's Spotlight
-// Privacy list. Tries the marker first (Tahoe-friendly), then the legacy
-// defaults read for older macOS where it still works.
-func isSpotlightExcluded(path string) bool {
-	if _, err := os.Stat(spotlightExcludeMarkerPath()); err == nil {
-		return true
-	}
-	out, err := exec.Command("defaults", "read", "com.apple.Spotlight", "Exclusions").Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), path)
+// isSpotlightExcluded reports whether the user has marked Spotlight Privacy
+// as configured for ~/Developer. Sentinel-based — see spotlightExcludeMarkerPath.
+func isSpotlightExcluded(_ string) bool {
+	_, err := os.Stat(spotlightExcludeMarkerPath())
+	return err == nil
 }
 
 func runSpotlightExclude() error {
