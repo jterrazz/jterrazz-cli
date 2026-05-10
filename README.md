@@ -31,25 +31,51 @@ Full-screen TUI showing system state at a glance: setup scripts, security checks
 
 ### `j machine`
 
-Read-only posture checks for personal machines, homelabs, and VPS-style hosts.
+Manages a small registry of the machines you own — typically a dev box (your laptop) and one or more homelab servers — and runs status checks, remote actions, and homelab-only configuration.
+
+#### Registry
+
+Every machine has an alias, a role (`dev` or `homelab`), and an optional SSH endpoint. The registry lives in `~/.jterrazz/config.json` and is the single source of truth — adding a machine also writes a managed `Host` block in `~/.ssh/config`.
 
 ```sh
-j machine status                         # Default homelab profile
-j machine status --profile homelab       # Always-on Mac mini / home server
-j machine status --profile workstation   # Personal interactive machine
-j machine status --profile vps           # Remote server profile
+j machine init                                                    # Bootstrap THIS machine (interactive)
+j machine list                                                    # Table of registered machines (* marks self)
+j machine add mac-mini --role homelab --ssh agent@192.168.1.106   # Add a remote
+j machine add macbook  --role dev                                 # Add a local-only entry
+j machine remove mac-mini                                         # Refuses if alias is self
 ```
 
-Checks include FileVault, SSH, power/self-healing settings, OpenClaw daemon/runtime/channel status, console/loginwindow state, Screen Sharing, Jump Desktop, Agent Inbox, Developer repos, OrbStack headless Background LaunchAgent status, stale OrbStack LaunchDaemon cleanup, and Docker reachability.
+The role decides what `j machine status` checks and which `j machine config` commands are allowed.
 
-Homelab expectations captured from the Mac mini setup:
+#### Inspect
 
-- The Mac is configured for FileVault-aware GUI auto-login (`j machine autologin enable` + `j machine lock-after-login install`), so the agent's Aqua session always comes up after a software reboot or cold boot. All long-running services run inside that session.
-- OpenClaw runs as a user `Aqua` LaunchAgent (`~/Library/LaunchAgents/ai.openclaw.gateway.plist`). The legacy `/Library/LaunchDaemons/ai.openclaw.gateway.plist` should be absent — `j machine status` flags it as a leftover.
-- OrbStack auto-starts via its app's Login Items entry (Settings → General → Open at login). The earlier `ai.orbstack.background-start` LaunchAgent + helper script are no longer used and should be absent.
-- The obsolete OrbStack system LaunchDaemon (`ai.orbstack.headless-start`) should also be absent; it failed under TCC and is intentionally replaced by the Login Items entry.
-- The lock-after-login LaunchAgent (`ai.jterrazz.lock-after-login`) locks the Aqua session ~20s after auto-login so the GUI stays alive for agent runtimes while the screen is physically protected.
-- Screen Sharing is optional but useful for manual GUI recovery after FileVault unlock; it is not expected before FileVault unlock.
+```sh
+j machine status              # FileVault, SSH, plus services (homelab role only)
+j machine probe <alias>       # ping + ssh + OpenClaw gateway port + console owner
+j machine restart <alias> -y  # FileVault-aware authrestart, waits for SSH to come back
+j machine unlock <alias>      # Pre-boot SSH session to enter the FileVault password
+```
+
+`status` runs locally and adapts to the role:
+- **dev**: Machine state only — FileVault, SSH (port 22).
+- **homelab**: Machine state + Services — OpenClaw runtime, OpenClaw config, channel health (Slack/Telegram/BlueBubbles), OrbStack.
+
+`probe`/`restart`/`unlock` resolve the SSH endpoint from the registry. They refuse to act on the alias marked as self.
+
+#### Configure (homelab-only)
+
+These mutate macOS state on the local box and refuse to run unless the current machine is registered as `homelab`:
+
+```sh
+j machine config autologin       enable | disable | status
+j machine config power           harden | status
+j machine config lock-after-login install | uninstall | status
+j machine config sshd            enable | status
+```
+
+Together they bring up the FileVault-aware GUI auto-login (`autologin enable` + `lock-after-login install`), the always-on power policy (`power harden`), and Remote Login with the right group membership for FileVault pre-boot SSH unlock (`sshd enable`).
+
+The Mac mini setup uses all of these so the Aqua session always comes back up after a software reboot or cold boot, with the screen physically locked but the agent runtime alive inside it.
 
 ### `j install [tool...]`
 
@@ -143,9 +169,22 @@ Everything lives under `~/.jterrazz/`:
 ```
 ~/.jterrazz/
 ├── bin/           # CLI binary
-├── config.json    # Runtime config (remote settings, future: credentials)
+├── config.json    # Runtime config (remote/Tailscale, machine registry)
 ├── tailscale/     # Userspace daemon state
 └── dns/           # Generated DNS profiles
+```
+
+Schema of `config.json`:
+
+```jsonc
+{
+  "remote":    { "mode": "userspace", "auth_method": "oauth", ... },
+  "self":      "macbook",
+  "machines": {
+    "macbook":  { "role": "dev" },
+    "mac-mini": { "role": "homelab", "ssh": "agent@192.168.1.106" }
+  }
+}
 ```
 
 ## Development
