@@ -9,18 +9,17 @@ import (
 )
 
 // powerHardenSettings is the canonical server power policy: never sleep, restart
-// on power return, no hibernate-to-disk (faster recovery), display can sleep,
-// wake on network access. Order is fixed so pmset's diagnostics are deterministic.
+// on power return, display can sleep, wake on network access. Order is fixed so
+// pmset's diagnostics are deterministic.
 //
-// Note: SleepOnPowerButton is not settable via pmset on Apple silicon — it shows
-// in `pmset -g` but is firmware-controlled. We don't try to set it.
+// Apple Silicon notes: SleepOnPowerButton and hibernatemode are firmware-controlled
+// and don't appear in `pmset -g custom`, so we don't try to set or check them.
 var powerHardenSettings = [][2]string{
 	{"autorestart", "1"},
 	{"sleep", "0"},
 	{"displaysleep", "5"},
 	{"disksleep", "0"},
 	{"powernap", "0"},
-	{"hibernatemode", "0"},
 	{"womp", "1"},
 }
 

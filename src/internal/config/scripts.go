@@ -213,7 +213,7 @@ var Scripts = []Script{
 		Name:        "spotlight-exclude",
 		Description: "Exclude ~/Developer from Spotlight (guided — opens Settings)",
 		Category:    ScriptCategorySecurity,
-		Help:        "macOS Tahoe stores the Spotlight Privacy list in a root-only plist (/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist), so we can't read it from the TUI without sudo on every render. This opens System Settings → Spotlight → Search Privacy and you drop ~/Developer onto the list manually. Then we touch ~/.jterrazz/spotlight-exclude.done so future checks see ✓ — delete that file if you ever remove the exclusion.",
+		Help:        "macOS Tahoe stores the Spotlight Privacy list in a root-only plist (/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist), so we can't read it directly. Instead we probe ~/Developer with `mdfind` — when the folder is in Privacy, Spotlight returns no hits for files we know exist. Install opens System Settings → Spotlight → Search Privacy so you can drop ~/Developer onto the list.",
 		CheckFn: func() CheckResult {
 			if isSpotlightExcluded(os.Getenv("HOME") + "/Developer") {
 				return InstalledWithDetail("~/Developer in Spotlight Privacy list")
@@ -352,7 +352,7 @@ func RegisterServerActions(a ServerActions) {
 			Category:    ScriptCategoryServer,
 			Role:        RoleServer,
 			Interactive: true,
-			Help:        "Applies a server pmset profile: never sleep, restart on power return, no hibernate, wake on LAN. Uninstall resets pmset to macOS defaults.",
+			Help:        "Applies a server pmset profile: never sleep, restart on power return, wake on LAN. Uninstall resets pmset to macOS defaults.",
 			CheckFn:     a.PowerCheck,
 			InstallFn:   NoInputs(a.PowerInstall),
 			UninstallFn: a.PowerUninstall,
@@ -652,28 +652,54 @@ Host *
 	return nil
 }
 
-// spotlightExcludeMarkerPath is the sentinel file written by the install
-// script.
+// isSpotlightExcluded reports whether `dir` is in the Spotlight Privacy list.
 //
-// On Tahoe (26+), the Spotlight Privacy list lives in
-// /System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist — root-only,
-// so a TUI CheckFn can't read it without prompting for sudo on every render.
-// And the legacy `defaults read com.apple.Spotlight Exclusions` returns
-// "does not exist" (the key was moved out of that domain).
+// On Tahoe (26+) the Privacy list lives in a root-only plist
+// (/System/Volumes/Data/.Spotlight-V100/VolumeConfiguration.plist) and the
+// legacy `defaults read com.apple.Spotlight Exclusions` returns
+// "does not exist", so we can't read the list directly without sudo.
 //
-// So we fall back to "did the user run the install at least once?":
-// the script touches this file after opening System Settings, on the
-// assumption that the user followed through with the manual step.
-// If they ever remove ~/Developer from Privacy, they can rm this marker.
-func spotlightExcludeMarkerPath() string {
-	return filepath.Join(os.Getenv("HOME"), ".jterrazz", "spotlight-exclude.done")
+// Instead we probe Spotlight: pick a file we know exists inside `dir` and ask
+// `mdfind` for it. When `dir` is in the Privacy list, Spotlight refuses to
+// index its contents and the query returns no hits. When it's not, mdfind
+// finds the file. Returns false if the directory has nothing to probe with.
+func isSpotlightExcluded(dir string) bool {
+	probe := pickSpotlightProbe(dir)
+	if probe == "" {
+		return false
+	}
+	cmd := exec.Command("/usr/bin/mdfind", "-onlyin", filepath.Dir(probe),
+		fmt.Sprintf("kMDItemFSName == %q", filepath.Base(probe)))
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) == ""
 }
 
-// isSpotlightExcluded reports whether the user has marked Spotlight Privacy
-// as configured for ~/Developer. Sentinel-based — see spotlightExcludeMarkerPath.
-func isSpotlightExcluded(_ string) bool {
-	_, err := os.Stat(spotlightExcludeMarkerPath())
-	return err == nil
+// pickSpotlightProbe walks `dir` and returns the path of the first regular,
+// non-hidden file it finds. Hidden files are skipped because Spotlight ignores
+// them by default, so they'd produce a false "excluded" reading.
+func pickSpotlightProbe(dir string) string {
+	var probe string
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		name := d.Name()
+		if path != dir && strings.HasPrefix(name, ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !d.IsDir() && d.Type().IsRegular() {
+			probe = path
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return probe
 }
 
 func runSpotlightExclude() error {
@@ -707,15 +733,8 @@ func runSpotlightExclude() error {
 		fmt.Println(out.Dimmed("Could not open Settings automatically — open System Settings → Spotlight → Search Privacy manually."))
 	}
 
-	// Touch the sentinel so subsequent CheckFn calls report ✓. We trust the
-	// user followed the manual step — if they didn't, they can rm
-	// ~/.jterrazz/spotlight-exclude.done and re-run.
-	markerPath := spotlightExcludeMarkerPath()
-	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err == nil {
-		_ = os.WriteFile(markerPath, []byte("manual\n"), 0o644)
-	}
-
 	// Brief pause so System Settings is on screen before the TUI redraws.
+	// The CheckFn auto-detects exclusion via mdfind, so no marker is needed.
 	time.Sleep(1 * time.Second)
 	return nil
 }
