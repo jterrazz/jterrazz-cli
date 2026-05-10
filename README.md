@@ -99,10 +99,15 @@ j clean docker trash     # Clean specific items
 
 ### `j config`
 
-Interactive TUI for configuring the local machine. Sections are collapsible, items show their current state, and the footer always tells you which keys do what for the item under the cursor.
+Interactive TUI for configuring the local machine, organised into 3 tabs (`←/→` to cycle, `1..3` to jump directly):
+
+- **Configuration** — installable items grouped by category. Sections are collapsible; items show their current state.
+- **Skills** — install / list / remove AI agent skills (requires the `skills` CLI on PATH).
+- **Remote** — read-only summary of the Tailscale endpoint; press `i` to open a form that rewrites `~/.jterrazz/config.json`.
 
 ```
  j config                                                self: mac-mini · server
+ [Configuration]  Skills  Remote
  ──────────────────────────────────────────────────────────────────────────────
  ▾ Terminal               3/3
    ✓ ghostty
@@ -123,7 +128,7 @@ Interactive TUI for configuring the local machine. Sections are collapsible, ite
  ▶ power |  i install   space details
 ```
 
-Categories (Server only appears when the current machine is registered as `server`):
+Categories on the Configuration tab (Server only appears when the current machine is registered as `server`):
 
 - **Terminal** — ghostty, tmux, hushlogin
 - **Security** — GPG commit signing, SSH keygen, GitHub CLI auth, encrypted DNS (Quad9), Spotlight exclusion
@@ -135,29 +140,25 @@ Keys:
 
 | Key | Action |
 |---|---|
+| `←` `→` `1..3` | switch tab |
 | `↑` `↓` `j` `k` | navigate |
 | `tab` | collapse/expand current section |
-| `space` | toggle the inline detail panel for the current item |
-| `i` | install the current item (only when not yet installed) |
+| `space` | toggle the inline detail panel (Configuration tab) |
+| `i` | install the current item (or open the reconfigure form on the Remote tab) |
 | `u` | uninstall (only for toggleable items that are currently installed) |
 | `q` `esc` | quit |
 
 Items that need extra inputs (e.g. autologin's password) open a modal form before installing — built on [Charm's huh](https://github.com/charmbracelet/huh). Set `AGENT_PASSWORD` in your environment to pre-fill the autologin password field.
 
-### `j skills`
-
-Interactive TUI to manage AI agent skills (install, list, remove). Requires the `skills` CLI on PATH.
-
 ### `j remote`
 
 ```sh
-j remote config   # Configure Tailscale in ~/.jterrazz/config.json
 j remote up       # Connect (userspace mode, SSH enabled, keep-awake)
 j remote down     # Disconnect and stop daemon
 j remote status   # Show connection state
 ```
 
-Supports `auto`/`userspace` mode and `oauth`/`authkey` authentication.
+Supports `auto`/`userspace` mode and `oauth`/`authkey` authentication. To change the endpoint settings, open `j config` and switch to the Remote tab.
 
 ### `j sync`
 
