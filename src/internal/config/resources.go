@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/domain/tool"
 )
@@ -584,59 +585,114 @@ func shortenUptime(s string) string {
 	return replacer.Replace(s)
 }
 
-// ScanAllRepos scans all git repos in ~/Developer and groups them by project prefix.
+// scanRepoMaxDepth caps how deep we walk into ~/Developer looking for git repos.
+// 2 is enough for the common ~/Developer/<org>/<repo> layout while keeping the
+// scan fast on machines with deep node_modules / vendor trees.
+const scanRepoMaxDepth = 2
+
+// findRepoPaths walks `root` and returns paths of git working trees, pruning
+// once a .git directory is found so we never descend into a repo's children.
+func findRepoPaths(root string, maxDepth int) []string {
+	var paths []string
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
+		if depth > maxDepth {
+			return
+		}
+		if _, err := os.Stat(dir + "/.git"); err == nil {
+			paths = append(paths, dir)
+			return // prune: don't descend into a repo
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			walk(dir+"/"+e.Name(), depth+1)
+		}
+	}
+	walk(root, 0)
+	return paths
+}
+
+// scanRepo runs the git invocations for a single repo path. Safe to call
+// concurrently — pure read-only commands.
+func scanRepo(repoPath, relPath string) RepoInfo {
+	branchCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	branchOut, _ := branchCmd.Output()
+	branch := strings.TrimSpace(string(branchOut))
+	if branch == "" {
+		branch = "?"
+	}
+
+	cmd := exec.Command("git", "-C", repoPath, "status", "--porcelain")
+	out, _ := cmd.Output()
+	status := strings.TrimSpace(string(out))
+	changeCount := 0
+	if status != "" {
+		changeCount = len(strings.Split(status, "\n"))
+	}
+
+	return RepoInfo{
+		FullName:    relPath,
+		Branch:      branch,
+		ChangeCount: changeCount,
+		Clean:       changeCount == 0,
+	}
+}
+
+// ScanAllRepos scans all git repos under ~/Developer (up to scanRepoMaxDepth
+// levels deep) and groups them by project. Grouping rules:
+//   - depth-1 repo (e.g. ~/Developer/x): prefix = portion before the first
+//     dash in the name (existing convention, keeps "jterrazz-cli" grouped
+//     under "jterrazz" if you have flat repos).
+//   - deeper repo (e.g. ~/Developer/jterrazz/jterrazz-cli): prefix = the
+//     containing directory name. Natural since organisations cluster repos
+//     under one folder.
+//
+// Git invocations run in parallel — without it, a homelab with 30+ repos
+// blocks the j status load for ~2 seconds.
 func ScanAllRepos() []ProjectGroup {
 	devDir := os.Getenv("HOME") + "/Developer"
-	entries, err := os.ReadDir(devDir)
-	if err != nil {
+	paths := findRepoPaths(devDir, scanRepoMaxDepth)
+	if len(paths) == 0 {
 		return nil
 	}
 
-	// Collect all repos
-	var repos []RepoInfo
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		repoPath := devDir + "/" + entry.Name()
-		if _, err := os.Stat(repoPath + "/.git"); err != nil {
-			continue
-		}
-
-		branchCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
-		branchOut, _ := branchCmd.Output()
-		branch := strings.TrimSpace(string(branchOut))
-		if branch == "" {
-			branch = "?"
-		}
-
-		cmd := exec.Command("git", "-C", repoPath, "status", "--porcelain")
-		out, _ := cmd.Output()
-		status := strings.TrimSpace(string(out))
-		changeCount := 0
-		if status != "" {
-			changeCount = len(strings.Split(status, "\n"))
-		}
-
-		repos = append(repos, RepoInfo{
-			FullName:    entry.Name(),
-			Branch:      branch,
-			ChangeCount: changeCount,
-			Clean:       changeCount == 0,
-		})
+	repos := make([]RepoInfo, len(paths))
+	var wg sync.WaitGroup
+	wg.Add(len(paths))
+	for i, repoPath := range paths {
+		go func(i int, repoPath string) {
+			defer wg.Done()
+			rel := strings.TrimPrefix(repoPath, devDir+"/")
+			repos[i] = scanRepo(repoPath, rel)
+		}(i, repoPath)
 	}
+	wg.Wait()
 
-	// Group by prefix (everything before the first "-")
+	// Group by prefix
 	groupMap := make(map[string][]RepoInfo)
 	var groupOrder []string
 	for _, repo := range repos {
-		prefix := repo.FullName
-		if idx := strings.Index(repo.FullName, "-"); idx > 0 {
+		var prefix, name string
+		if idx := strings.LastIndex(repo.FullName, "/"); idx > 0 {
+			// nested: prefix = parent folder, name = leaf
 			prefix = repo.FullName[:idx]
-			repo.Name = repo.FullName[idx+1:]
+			name = repo.FullName[idx+1:]
+		} else if idx := strings.Index(repo.FullName, "-"); idx > 0 {
+			// flat with dash: prefix = before-dash, name = after-dash
+			prefix = repo.FullName[:idx]
+			name = repo.FullName[idx+1:]
 		} else {
-			repo.Name = repo.FullName
+			// flat single-word: standalone group
+			prefix = repo.FullName
+			name = repo.FullName
 		}
+		repo.Name = name
 		if _, exists := groupMap[prefix]; !exists {
 			groupOrder = append(groupOrder, prefix)
 		}
@@ -656,11 +712,12 @@ func ScanAllRepos() []ProjectGroup {
 	return result
 }
 
-// ScanDependencies checks outdated deps for all repos in ~/Developer.
+// ScanDependencies checks outdated deps for all repos under ~/Developer
+// (same depth and grouping rules as ScanAllRepos).
 func ScanDependencies() []DepProjectGroup {
 	devDir := os.Getenv("HOME") + "/Developer"
-	entries, err := os.ReadDir(devDir)
-	if err != nil {
+	paths := findRepoPaths(devDir, scanRepoMaxDepth)
+	if len(paths) == 0 {
 		return nil
 	}
 
@@ -672,15 +729,7 @@ func ScanDependencies() []DepProjectGroup {
 
 	// Collect repos with lockfiles
 	var jobs []depResult
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		repoPath := devDir + "/" + entry.Name()
-		if _, err := os.Stat(repoPath + "/.git"); err != nil {
-			continue
-		}
-
+	for _, repoPath := range paths {
 		var manager string
 		if _, err := os.Stat(repoPath + "/pnpm-lock.yaml"); err == nil {
 			manager = "pnpm"
@@ -694,7 +743,8 @@ func ScanDependencies() []DepProjectGroup {
 		if manager == "" {
 			continue
 		}
-		jobs = append(jobs, depResult{fullName: entry.Name(), manager: manager, outdated: -1})
+		rel := strings.TrimPrefix(repoPath, devDir+"/")
+		jobs = append(jobs, depResult{fullName: rel, manager: manager, outdated: -1})
 	}
 
 	// Run outdated checks in parallel
@@ -715,15 +765,20 @@ func ScanDependencies() []DepProjectGroup {
 		jobs[r.idx].outdated = r.outdated
 	}
 
-	// Group by prefix
+	// Group by prefix — same rules as ScanAllRepos.
 	groupMap := make(map[string][]DepRepoInfo)
 	var groupOrder []string
 	for _, job := range jobs {
-		prefix := job.fullName
-		name := job.fullName
-		if idx := strings.Index(job.fullName, "-"); idx > 0 {
+		var prefix, name string
+		if idx := strings.LastIndex(job.fullName, "/"); idx > 0 {
 			prefix = job.fullName[:idx]
 			name = job.fullName[idx+1:]
+		} else if idx := strings.Index(job.fullName, "-"); idx > 0 {
+			prefix = job.fullName[:idx]
+			name = job.fullName[idx+1:]
+		} else {
+			prefix = job.fullName
+			name = job.fullName
 		}
 		if _, exists := groupMap[prefix]; !exists {
 			groupOrder = append(groupOrder, prefix)
