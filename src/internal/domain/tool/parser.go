@@ -166,6 +166,11 @@ func ParseClaudeVersion(s string) string {
 	return parseFirstLineField(s, 0, false)
 }
 
+// ParseHermesVersion parses "Hermes Agent v0.13.0 (2026.5.7)\n..." -> "0.13.0"
+func ParseHermesVersion(s string) string {
+	return parseFirstLineField(s, 2, true)
+}
+
 // ParseAnsibleLintVersion parses "ansible-lint 25.12.2 using..." -> "25.12.2"
 func ParseAnsibleLintVersion(s string) string {
 	return parseFirstLineField(s, 1, false)

@@ -91,7 +91,7 @@ type DaemonCheck struct {
 // daemonNamePrefixes filters LaunchAgents to just our own. macOS ships
 // dozens of agents and third-party apps add more; we don't want to surface
 // Google Updater or Adobe in the j status view.
-var daemonNamePrefixes = []string{"ai.jterrazz.", "com.jterrazz.", "ai.openclaw."}
+var daemonNamePrefixes = []string{"ai.jterrazz.", "com.jterrazz.", "ai.openclaw.", "ai.hermes."}
 
 // DiscoverDaemons enumerates ~/Library/LaunchAgents for plists matching
 // daemonNamePrefixes. Sorted by label so the rendered list is stable.

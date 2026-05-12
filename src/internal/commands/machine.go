@@ -166,7 +166,11 @@ func serviceStateChecks() []machineCheck {
 		checkOpenClawConfig(),
 	}
 	checks = append(checks, checkOpenClawChannels()...)
-	checks = append(checks, checkOrbStackStatus())
+	checks = append(checks,
+		checkHermesProcess(),
+		checkHermesConfig(),
+		checkOrbStackStatus(),
+	)
 	return checks
 }
 
@@ -258,6 +262,63 @@ func channelCheck(statusOutput, name string) machineCheck {
 		}
 	}
 	return machineCheck{machineStateWarn, name, "not found", "channel not reported by OpenClaw"}
+}
+
+func checkHermesProcess() machineCheck {
+	out, _ := runOutput("ps", "-axo", "user,pid,ppid,command")
+	lines := filterLines(out, "hermes_cli.main", "gateway")
+	if len(lines) == 0 {
+		return machineCheck{machineStateFail, "Hermes runtime", "not running", "gateway process not found"}
+	}
+	line := strings.Join(lines, " | ")
+	state := machineStateOK
+	value := "running"
+	detail := line
+	if !strings.Contains(line, "jterrazz.agent") {
+		state = machineStateWarn
+		detail = "unexpected owner: " + line
+	}
+	return machineCheck{state, "Hermes runtime", value, detail}
+}
+
+func checkHermesConfig() machineCheck {
+	home, _ := os.UserHomeDir()
+	path := filepath.Join(home, ".hermes/config.yaml")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return machineCheck{machineStateFail, "Hermes config", "missing", path}
+	}
+	model := scanYAMLDefaultModel(string(data))
+	if model == "" {
+		model = "configured"
+	}
+	return machineCheck{machineStateOK, "Hermes config", model, path}
+}
+
+// scanYAMLDefaultModel pulls `model.default` out of the Hermes config.yaml
+// without taking a yaml dep. The file is small and the layout is stable —
+// `model:\n  default: <value>` — so a two-state line scanner is enough.
+func scanYAMLDefaultModel(s string) string {
+	inModel := false
+	for _, raw := range strings.Split(s, "\n") {
+		line := strings.TrimRight(raw, " \t\r")
+		stripped := strings.TrimSpace(line)
+		if stripped == "" || strings.HasPrefix(stripped, "#") {
+			continue
+		}
+		topLevel := len(line) > 0 && line[0] != ' ' && line[0] != '\t'
+		if topLevel {
+			inModel = strings.HasPrefix(stripped, "model:")
+			continue
+		}
+		if !inModel {
+			continue
+		}
+		if rest, ok := strings.CutPrefix(stripped, "default:"); ok {
+			return strings.Trim(strings.TrimSpace(rest), "\"'")
+		}
+	}
+	return ""
 }
 
 func checkOrbStackStatus() machineCheck {

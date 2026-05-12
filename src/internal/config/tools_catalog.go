@@ -354,6 +354,20 @@ var Tools = []Tool{
 		Dependencies: []string{"homebrew"},
 		VersionFn:    tool.VersionFromCmd("opencode", []string{"--version"}, tool.TrimVersion),
 	},
+	{
+		Name:      "hermes",
+		Command:   "hermes",
+		Method:    InstallManual,
+		Category:  CategoryAIAgents,
+		VersionFn: tool.VersionFromCmd("hermes", []string{"--version"}, tool.ParseHermesVersion),
+		InstallFn: func() error {
+			cmd := exec.Command("bash", "-c", "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin
+			return cmd.Run()
+		},
+	},
 
 	// ==========================================================================
 	// AI Tooling
