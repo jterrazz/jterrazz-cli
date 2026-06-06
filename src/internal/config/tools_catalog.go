@@ -781,6 +781,17 @@ var Tools = []Tool{
 		VersionFn:    tool.VersionFromCmd("tmux", []string{"-V"}, tool.ParseTmuxVersion),
 	},
 	{
+		Name:         "starship",
+		Description:  "Cross-shell prompt (path, git branch/status, versions)",
+		Command:      "starship",
+		Formula:      "starship",
+		Method:       InstallBrewFormula,
+		Category:     CategoryTerminal,
+		Dependencies: []string{"homebrew"},
+		Scripts:      []string{"starship"},
+		VersionFn:    tool.VersionFromCmd("starship", []string{"--version"}, tool.ParseBrewVersion),
+	},
+	{
 		Name:         "bat",
 		Description:  "Cat clone with syntax highlighting",
 		Command:      "bat",

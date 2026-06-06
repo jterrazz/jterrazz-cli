@@ -7,8 +7,15 @@
 #        5=magenta(#f5bde6) 6=cyan(#8bd5ca) 7=white(#a5adcb)
 # =============================================================================
 
-# Prompt: blue path (Zed function blue) + trailing space.
-PROMPT="%(?:%{$fg_bold[green]%}➜ :%{$fg_bold[red]%}➜ ) %{$fg[blue]%}%c%{$reset_color%} "
+# Prompt: Starship (managed by `j`) — Catppuccin Macchiato, shows path + git
+# branch/status + language versions. Falls back to a minimal path-only prompt
+# when starship isn't installed yet, so a fresh machine still has a usable shell.
+if command -v starship &>/dev/null; then
+    export STARSHIP_CONFIG="$HOME/.config/starship.toml"
+    eval "$(starship init zsh)"
+else
+    PROMPT="%(?:%{$fg_bold[green]%}➜ :%{$fg_bold[red]%}➜ ) %{$fg[blue]%}%c%{$reset_color%} "
+fi
 
 # ls colors (BSD): dirs=blue, links=cyan, sockets=red, pipes=yellow, exec=green.
 export CLICOLOR=1

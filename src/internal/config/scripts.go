@@ -163,6 +163,17 @@ var Scripts = []Script{
 		CheckFn:      checkFileExists(os.Getenv("HOME")+"/.tmux.conf", "~/.tmux.conf"),
 		InstallFn:    NoInputs(runTmuxConfig),
 	},
+	{
+		Name:         "starship",
+		Description:  "Install Starship prompt config",
+		Category:     ScriptCategoryTerminal,
+		RequiresTool: "starship",
+		Help:         "Drops the repo's Catppuccin Macchiato Starship config into ~/.config/starship.toml. The zsh loader (dotfiles/applications/zsh/zshrc.sh) runs `starship init` automatically when the binary is present, so a new shell picks it up — path, git branch/status and language versions, no Nerd Font required.",
+		CheckFn: checkFileExists(
+			os.Getenv("HOME")+"/.config/starship.toml",
+			"~/.config/starship.toml"),
+		InstallFn: NoInputs(runStarshipConfig),
+	},
 
 	// ==========================================================================
 	// Security
@@ -739,6 +750,10 @@ func runSpotlightExclude() error {
 	return nil
 }
 
+var runStarshipConfig = makeConfigInstaller("Starship",
+	"dotfiles/applications/starship/starship.toml",
+	os.Getenv("HOME")+"/.config/starship.toml")
+
 var runZedConfig = makeConfigInstaller("Zed",
 	"dotfiles/applications/zed/settings.json",
 	os.Getenv("HOME")+"/.config/zed/settings.json")
@@ -1040,4 +1055,3 @@ func CheckScript(script Script) CheckResult {
 	}
 	return CheckResult{} // No check = unknown state
 }
-
