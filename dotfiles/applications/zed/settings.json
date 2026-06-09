@@ -54,7 +54,7 @@
   },
   "base_keymap": "VSCode",
   "icon_theme": {
-    "mode": "light",
+    "mode": "dark",
     "light": "Base Charmed Icons",
     "dark": "Base Charmed Icons"
   },
@@ -62,9 +62,46 @@
   "ui_font_size": 15.4,
   "buffer_font_size": 13,
   "theme": {
-    "mode": "light",
+    "mode": "dark",
     "light": "Polar",
     "dark": "Sequoia Moonlight"
+  },
+  "theme_overrides": {
+    "Polar": {
+      "background": "#D7DBE3",
+      "editor.background": "#EAEDF3",
+      "terminal.background": "#EAEDF3",
+      "elevated_surface.background": "#F4F6FA",
+      "element.background": "#CDD3DE",
+      "title_bar.background": "#D7DBE3",
+      "status_bar.background": "#D7DBE3",
+      "toolbar.background": "#EAEDF3",
+      "tab_bar.background": "#D7DBE3",
+      "tab.inactive_background": "#D7DBE3",
+      "tab.active_background": "#EAEDF3",
+      "panel.background": "#DEE2E9",
+      "scrollbar.track.background": "#EAEDF3",
+      "editor.gutter.background": "#EAEDF3",
+      "editor.subheader.background": "#D7DBE3",
+      "editor.active_line.background": "#DFE3EB",
+      "editor.highlighted_line.background": "#DFE3EB"
+    },
+    "Sequoia Moonlight": {
+      "background": "#06070A",
+      "editor.background": "#06070A",
+      "terminal.background": "#06070A",
+      "surface.background": "#101319",
+      "elevated_surface.background": "#161922",
+      "drop_target.background": "#161922",
+      "title_bar.background": "#0C0E13",
+      "status_bar.background": "#0C0E13",
+      "toolbar.background": "#06070A",
+      "panel.background": "#0C0E13",
+      "scrollbar.track.background": "#06070A",
+      "editor.gutter.background": "#06070A",
+      "editor.active_line.background": "#817c9c1f",
+      "tab.active_background": "#817c9c24"
+    }
   },
   "auto_install_extensions": {
     "ansible": true,
