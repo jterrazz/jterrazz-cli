@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jterrazz/jterrazz-cli/src/internal/config"
 	"github.com/jterrazz/jterrazz-cli/src/internal/presentation/print"
@@ -29,14 +30,14 @@ var remoteUpCmd = &cobra.Command{
 			return
 		}
 
-		mode, err := config.RemoteUp(settings)
+		daemon, err := config.RemoteUp(settings)
 		if err != nil {
 			print.Error(err.Error())
 			return
 		}
 
-		print.Success(fmt.Sprintf("Remote access connected (%s mode)", mode))
-		if mode == config.RemoteModeUserspace && config.CommandExists("caffeinate") {
+		print.Success(fmt.Sprintf("Remote access connected (%s daemon)", daemon))
+		if daemon == config.RemoteDaemonUserspace && config.CommandExists("caffeinate") {
 			if st, statusErr := config.RemoteStatusInfo(settings); statusErr == nil && !st.KeepAwake {
 				print.Warning("Connected, but keep-awake is not active")
 			}
@@ -54,13 +55,21 @@ var remoteDownCmd = &cobra.Command{
 			return
 		}
 
-		mode, err := config.RemoteDown(settings)
+		result, err := config.RemoteDown(settings)
 		if err != nil {
 			print.Error(err.Error())
 			return
 		}
 
-		print.Success(fmt.Sprintf("Remote access disconnected (%s mode)", mode))
+		if len(result.Stopped) == 0 {
+			print.Success("Remote access already disconnected")
+			return
+		}
+		names := make([]string, len(result.Stopped))
+		for i, daemon := range result.Stopped {
+			names[i] = string(daemon)
+		}
+		print.Success(fmt.Sprintf("Remote access disconnected (%s daemon)", strings.Join(names, " + ")))
 	},
 }
 
@@ -98,16 +107,16 @@ func runRemoteStatus() {
 		return
 	}
 
-	print.Linef("Mode: %s", status.Mode)
+	print.Linef("Connected: %t", status.Connected)
 	print.Linef("State: %s", status.BackendState)
+	print.Linef("Daemon: %s", status.Daemon.Describe())
 	if status.Hostname != "" {
 		print.Linef("Host: %s", status.Hostname)
 	}
 	if status.IP != "" {
 		print.Linef("IP: %s", status.IP)
 	}
-	print.Linef("Connected: %t", status.Connected)
-	if status.Mode == config.RemoteModeUserspace {
+	if status.Daemon == config.RemoteDaemonUserspace {
 		print.Linef("Keep awake: %t", status.KeepAwake)
 	}
 }

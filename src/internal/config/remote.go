@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -17,11 +16,44 @@ import (
 	"time"
 )
 
-// RemoteMode controls how the local tailscale client is run.
+// Remote access runs over Tailscale. Two distinct tailscaled daemons can
+// exist on the same machine, and the distinction drives everything below:
+//
+//   - userspace: a tailscaled that j starts itself with
+//     --tun=userspace-networking (no root, no kernel extension), keeping its
+//     state, socket and logs under ~/.jterrazz/tailscale/. This is the only
+//     daemon j ever starts.
+//   - system: the daemon owned by the Tailscale.app GUI (or an OS service).
+//     j never starts it, but it can report it and disconnect it.
+//
+// RemoteDaemon identifies which of the two a call talks to.
+type RemoteDaemon string
+
+const (
+	RemoteDaemonUserspace RemoteDaemon = "userspace" // started and owned by j
+	RemoteDaemonSystem    RemoteDaemon = "system"    // Tailscale.app / OS service
+)
+
+// Describe returns a human-readable label for status output.
+func (d RemoteDaemon) Describe() string {
+	switch d {
+	case RemoteDaemonUserspace:
+		return "userspace (managed by j)"
+	case RemoteDaemonSystem:
+		return "system (Tailscale.app)"
+	}
+	return string(d)
+}
+
+// RemoteMode is the persisted policy choosing which daemons j operates on.
 type RemoteMode string
 
 const (
-	RemoteModeAuto      RemoteMode = "auto"
+	// RemoteModeAuto connects through j's userspace daemon, but status and
+	// disconnect also cover the system daemon when it holds the connection.
+	RemoteModeAuto RemoteMode = "auto"
+	// RemoteModeUserspace restricts j to its own userspace daemon; the
+	// system daemon is never touched.
 	RemoteModeUserspace RemoteMode = "userspace"
 )
 
@@ -57,12 +89,12 @@ type JRCConfig struct {
 
 // RemoteStatus summarizes current remote connectivity.
 type RemoteStatus struct {
-	Mode         RemoteMode
-	BackendState string
+	Daemon       RemoteDaemon // which daemon answered
+	BackendState string       // tailscale's own state: Running, Stopped, NeedsLogin…
 	Hostname     string
 	IP           string
 	Connected    bool
-	KeepAwake    bool
+	KeepAwake    bool // userspace only: caffeinate guard against sleep
 }
 
 type tailscalePeer struct {
@@ -91,7 +123,7 @@ type TailscalePeerInfo struct {
 type TailscaleFullStatus struct {
 	Connected    bool
 	BackendState string
-	Mode         RemoteMode
+	Daemon       RemoteDaemon
 	IP           string
 	ExitNode     string // hostname of active exit node, or ""
 	Peers        []TailscalePeerInfo
@@ -232,13 +264,13 @@ func ValidateRemoteSettings(s RemoteSettings) error {
 	switch s.Mode {
 	case RemoteModeAuto, RemoteModeUserspace:
 	default:
-		return fmt.Errorf("invalid remote mode: %s", s.Mode)
+		return fmt.Errorf("invalid remote mode %q (valid: auto, userspace)", s.Mode)
 	}
 
 	switch s.AuthMethod {
 	case RemoteAuthOAuth, RemoteAuthAuthKey:
 	default:
-		return fmt.Errorf("invalid auth_method: %s", s.AuthMethod)
+		return fmt.Errorf("invalid auth_method %q (valid: oauth, authkey)", s.AuthMethod)
 	}
 
 	if s.AuthMethod == RemoteAuthAuthKey && strings.TrimSpace(s.Secret) == "" {
@@ -248,85 +280,18 @@ func ValidateRemoteSettings(s RemoteSettings) error {
 	return nil
 }
 
-// ConfigureRemoteInteractive prompts for remote settings and persists them in config.json.
-func ConfigureRemoteInteractive() error {
-	current, err := LoadRemoteSettings()
-	if err != nil {
-		return err
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Remote access config (writes ~/.jterrazz/config.json)")
-	fmt.Println()
-
-	current = normalizeRemoteSettings(current)
-	fmt.Printf("Mode [auto/userspace] (%s): ", current.Mode)
-	modeInput, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read mode: %w", err)
-	}
-	modeInput = strings.TrimSpace(strings.ToLower(modeInput))
-	if modeInput != "" {
-		current.Mode = RemoteMode(modeInput)
-	}
-
-	fmt.Printf("Auth method [oauth/authkey] (%s): ", current.AuthMethod)
-	authInput, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read auth method: %w", err)
-	}
-	authInput = strings.TrimSpace(strings.ToLower(authInput))
-	if authInput != "" {
-		current.AuthMethod = RemoteAuthMethod(authInput)
-	}
-
-	if current.AuthMethod == RemoteAuthAuthKey {
-		if current.Secret == "" {
-			fmt.Print("Auth key: ")
-		} else {
-			fmt.Print("Auth key (leave empty to keep current): ")
-		}
-		secretInput, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("failed to read secret: %w", err)
-		}
-		secretInput = strings.TrimSpace(secretInput)
-		if secretInput != "" {
-			current.Secret = secretInput
-		}
-	} else {
-		current.Secret = ""
-	}
-
-	fmt.Printf("Hostname (optional, current: %s): ", current.Hostname)
-	hostInput, err := reader.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read hostname: %w", err)
-	}
-	hostInput = strings.TrimSpace(hostInput)
-	if hostInput != "" {
-		current.Hostname = hostInput
-	}
-
-	if err := ValidateRemoteSettings(current); err != nil {
-		return err
-	}
-
-	if err := SaveRemoteSettings(current); err != nil {
-		return err
-	}
-	return nil
-}
-
-func tailscaleArgsForMode(mode RemoteMode, args ...string) []string {
-	if mode == RemoteModeUserspace {
+// tailscaleArgs prefixes the CLI args so the command reaches the right
+// daemon: j's userspace daemon listens on its own socket, while the system
+// daemon is whatever the bare `tailscale` CLI finds.
+func tailscaleArgs(daemon RemoteDaemon, args ...string) []string {
+	if daemon == RemoteDaemonUserspace {
 		return append([]string{"--socket", userspaceSocketPath()}, args...)
 	}
 	return args
 }
 
-func runTailscale(mode RemoteMode, args ...string) (string, error) {
-	allArgs := tailscaleArgsForMode(mode, args...)
+func runTailscale(daemon RemoteDaemon, args ...string) (string, error) {
+	allArgs := tailscaleArgs(daemon, args...)
 	cmd := exec.Command("tailscale", allArgs...)
 	var output bytes.Buffer
 	cmd.Stdout = io.MultiWriter(os.Stdout, &output)
@@ -444,9 +409,9 @@ func mergeUpArgsWithSuggestedFlags(desiredUpArgs []string, suggestedFlags []stri
 	return append([]string{"up"}, merged...)
 }
 
-func getTailscaleStatus(mode RemoteMode) (tailscaleStatus, error) {
+func getTailscaleStatus(daemon RemoteDaemon) (tailscaleStatus, error) {
 	var st tailscaleStatus
-	cmd := exec.Command("tailscale", tailscaleArgsForMode(mode, "status", "--json")...)
+	cmd := exec.Command("tailscale", tailscaleArgs(daemon, "status", "--json")...)
 	out, err := cmd.Output()
 	if err != nil {
 		return st, err
@@ -457,8 +422,13 @@ func getTailscaleStatus(mode RemoteMode) (tailscaleStatus, error) {
 	return st, nil
 }
 
+func userspaceDaemonRunning() bool {
+	_, err := getTailscaleStatus(RemoteDaemonUserspace)
+	return err == nil
+}
+
 func ensureUserspaceDaemon() error {
-	if _, err := getTailscaleStatus(RemoteModeUserspace); err == nil {
+	if userspaceDaemonRunning() {
 		return nil
 	}
 
@@ -495,7 +465,7 @@ func ensureUserspaceDaemon() error {
 
 	deadline := time.Now().Add(4 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := getTailscaleStatus(RemoteModeUserspace); err == nil {
+		if userspaceDaemonRunning() {
 			return nil
 		}
 		time.Sleep(250 * time.Millisecond)
@@ -609,23 +579,21 @@ func buildUpArgs(settings RemoteSettings) []string {
 	return args
 }
 
-func remoteUpWithMode(mode RemoteMode, settings RemoteSettings) error {
+// connectUserspace starts j's userspace daemon if needed, runs `tailscale up`
+// against it, and starts the keep-awake guard.
+func connectUserspace(settings RemoteSettings) error {
 	if !CommandExists("tailscale") {
 		return fmt.Errorf("tailscale CLI not found")
 	}
 
-	if mode == RemoteModeUserspace {
-		if err := ensureUserspaceDaemon(); err != nil {
-			return err
-		}
+	if err := ensureUserspaceDaemon(); err != nil {
+		return err
 	}
 
 	upArgs := buildUpArgs(settings)
-	output, err := runTailscale(mode, upArgs...)
+	output, err := runTailscale(RemoteDaemonUserspace, upArgs...)
 	if err == nil {
-		if mode == RemoteModeUserspace {
-			_ = ensureKeepAwake()
-		}
+		_ = ensureKeepAwake()
 		return nil
 	}
 
@@ -633,11 +601,9 @@ func remoteUpWithMode(mode RemoteMode, settings RemoteSettings) error {
 	if shouldRetryWithSuggestedFlags(output) {
 		if suggested := parseSuggestedUpFlags(output); len(suggested) > 0 {
 			retryArgs := mergeUpArgsWithSuggestedFlags(upArgs, suggested)
-			retryOutput, retryErr := runTailscale(mode, retryArgs...)
+			retryOutput, retryErr := runTailscale(RemoteDaemonUserspace, retryArgs...)
 			if retryErr == nil {
-				if mode == RemoteModeUserspace {
-					_ = ensureKeepAwake()
-				}
+				_ = ensureKeepAwake()
 				return nil
 			}
 			return formatCommandError(retryErr, retryOutput)
@@ -647,74 +613,87 @@ func remoteUpWithMode(mode RemoteMode, settings RemoteSettings) error {
 	return formatCommandError(err, output)
 }
 
-func detectActiveMode() RemoteMode {
-	if _, err := getTailscaleStatus(RemoteModeUserspace); err == nil {
-		return RemoteModeUserspace
+// detectActiveDaemon reports which daemon to talk to, preferring j's own
+// userspace daemon when it is reachable.
+func detectActiveDaemon() RemoteDaemon {
+	if userspaceDaemonRunning() {
+		return RemoteDaemonUserspace
 	}
-	return RemoteModeAuto
+	return RemoteDaemonSystem
 }
 
-// RemoteUp connects remote access using configured settings.
-// Returns the mode that was actually used.
-func RemoteUp(settings RemoteSettings) (RemoteMode, error) {
+// RemoteUp connects remote access using configured settings. Both modes
+// connect through j's userspace daemon — they only differ on the status
+// and disconnect side. Returns the daemon that was used.
+func RemoteUp(settings RemoteSettings) (RemoteDaemon, error) {
 	settings = normalizeRemoteSettings(settings)
 	if err := ValidateRemoteSettings(settings); err != nil {
 		return "", err
 	}
 
-	switch settings.Mode {
-	case RemoteModeUserspace:
-		if err := remoteUpWithMode(RemoteModeUserspace, settings); err != nil {
-			return "", err
-		}
-		return RemoteModeUserspace, nil
-	case RemoteModeAuto:
-		if err := remoteUpWithMode(RemoteModeUserspace, settings); err != nil {
-			return "", err
-		}
-		return RemoteModeUserspace, nil
-	default:
-		return "", fmt.Errorf("unsupported mode: %s", settings.Mode)
+	if err := connectUserspace(settings); err != nil {
+		return "", err
 	}
+	return RemoteDaemonUserspace, nil
 }
 
-// RemoteDown disconnects remote access.
-// Returns the mode that was actually used.
-func RemoteDown(settings RemoteSettings) (RemoteMode, error) {
-	settings = normalizeRemoteSettings(settings)
-	mode := settings.Mode
-	if mode == RemoteModeAuto {
-		mode = detectActiveMode()
-	}
+// RemoteDownResult lists the daemons a RemoteDown call actually disconnected.
+// Empty means everything was already down.
+type RemoteDownResult struct {
+	Stopped []RemoteDaemon
+}
 
-	if mode == RemoteModeUserspace {
-		downOutput, downErr := runTailscale(RemoteModeUserspace, "down")
+// RemoteDown disconnects remote access. It always stops j's userspace daemon
+// when it runs; in auto mode it also disconnects the system daemon
+// (Tailscale.app) so status doesn't report the link still up afterwards.
+// Calling it with nothing running is a no-op, not an error.
+func RemoteDown(settings RemoteSettings) (RemoteDownResult, error) {
+	settings = normalizeRemoteSettings(settings)
+	var result RemoteDownResult
+
+	if userspaceDaemonRunning() {
+		output, err := runTailscale(RemoteDaemonUserspace, "down")
 		stopKeepAwake()
 		stopUserspaceDaemon()
-		if downErr != nil {
-			return mode, formatCommandError(downErr, downOutput)
+		if err != nil {
+			return result, formatCommandError(err, output)
 		}
-		return mode, nil
+		result.Stopped = append(result.Stopped, RemoteDaemonUserspace)
+	} else {
+		// The daemon is gone but a keep-awake guard may have been left behind.
+		stopKeepAwake()
 	}
 
-	return mode, fmt.Errorf("unsupported mode: %s", mode)
+	if settings.Mode != RemoteModeAuto {
+		return result, nil
+	}
+
+	if st, err := getTailscaleStatus(RemoteDaemonSystem); err == nil && st.BackendState == "Running" {
+		output, err := runTailscale(RemoteDaemonSystem, "down")
+		if err != nil {
+			return result, formatCommandError(err, output)
+		}
+		result.Stopped = append(result.Stopped, RemoteDaemonSystem)
+	}
+
+	return result, nil
 }
 
 // RemoteStatusInfo returns current remote access state.
 func RemoteStatusInfo(settings RemoteSettings) (RemoteStatus, error) {
 	settings = normalizeRemoteSettings(settings)
-	mode := settings.Mode
-	if mode == RemoteModeAuto {
-		mode = detectActiveMode()
+	daemon := RemoteDaemonUserspace
+	if settings.Mode == RemoteModeAuto {
+		daemon = detectActiveDaemon()
 	}
 
-	st, err := getTailscaleStatus(mode)
+	st, err := getTailscaleStatus(daemon)
 	if err != nil {
-		return RemoteStatus{Mode: mode, Connected: false}, err
+		return RemoteStatus{Daemon: daemon, Connected: false}, err
 	}
 
 	result := RemoteStatus{
-		Mode:         mode,
+		Daemon:       daemon,
 		BackendState: st.BackendState,
 		Connected:    st.BackendState == "Running",
 		KeepAwake:    isKeepAwakeRunning(),
@@ -736,33 +715,25 @@ func RemoteStatusInfo(settings RemoteSettings) (RemoteStatus, error) {
 // GetTailscaleFullStatus returns enriched Tailscale status including peers.
 // It tries configured remote settings first, then falls back to a direct CLI call.
 func GetTailscaleFullStatus() (TailscaleFullStatus, error) {
-	var mode RemoteMode
-	var st tailscaleStatus
-
+	daemon := RemoteDaemonSystem
 	if settings, err := LoadRemoteSettings(); err == nil && ValidateRemoteSettings(settings) == nil {
 		settings = normalizeRemoteSettings(settings)
-		mode = settings.Mode
-		if mode == RemoteModeAuto {
-			mode = detectActiveMode()
+		if settings.Mode == RemoteModeUserspace {
+			daemon = RemoteDaemonUserspace
+		} else {
+			daemon = detectActiveDaemon()
 		}
-		st, err = getTailscaleStatus(mode)
-		if err != nil {
-			return TailscaleFullStatus{}, err
-		}
-	} else {
-		// No configured settings — try direct CLI
-		var err error
-		st, err = getTailscaleStatus(RemoteModeAuto)
-		if err != nil {
-			return TailscaleFullStatus{}, err
-		}
-		mode = RemoteModeAuto
+	}
+
+	st, err := getTailscaleStatus(daemon)
+	if err != nil {
+		return TailscaleFullStatus{}, err
 	}
 
 	result := TailscaleFullStatus{
 		BackendState: st.BackendState,
 		Connected:    st.BackendState == "Running",
-		Mode:         mode,
+		Daemon:       daemon,
 	}
 
 	if st.Self != nil {

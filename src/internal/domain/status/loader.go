@@ -396,8 +396,8 @@ func (l *Loader) Start() {
 			if st, statusErr := config.RemoteStatusInfo(settings); statusErr == nil {
 				if st.Connected {
 					state := "connected"
-					if st.Mode != "" {
-						state += " " + string(st.Mode)
+					if st.Daemon != "" {
+						state += " " + string(st.Daemon)
 					}
 					if st.IP != "" {
 						state += " " + st.IP

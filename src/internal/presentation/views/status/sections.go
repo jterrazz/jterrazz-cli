@@ -250,8 +250,8 @@ func (m Model) renderEnvironment(sections sectionMap, w int) string {
 
 			// Status row — connected is neutral (mesh only, not privacy)
 			statusVal := strings.ToLower(st.BackendState)
-			if st.Mode != "" {
-				statusVal += " (" + string(st.Mode) + ")"
+			if st.Daemon != "" {
+				statusVal += " (" + string(st.Daemon) + ")"
 			}
 			left := " status"
 			right := theme.Muted.Render(statusVal)

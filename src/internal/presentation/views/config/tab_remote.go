@@ -68,7 +68,7 @@ func (m Model) remoteStartConfigure() (tea.Model, tea.Cmd) {
 	fields := []huh.Field{
 		huh.NewSelect[string]().
 			Title("Mode").
-			Description("auto = pick best available; userspace = no kernel module").
+			Description("auto = also covers the system Tailscale app; userspace = j's own daemon only").
 			Options(
 				huh.NewOption(string(config.RemoteModeAuto), string(config.RemoteModeAuto)),
 				huh.NewOption(string(config.RemoteModeUserspace), string(config.RemoteModeUserspace)),
