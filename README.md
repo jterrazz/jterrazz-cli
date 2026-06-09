@@ -160,19 +160,6 @@ j remote status   # Show connection state
 
 Supports `auto`/`userspace` mode and `oauth`/`authkey` authentication. To change the endpoint settings, open `j config` and switch to the Remote tab.
 
-### `j sync`
-
-Sync project scaffolding across repos using [Copier](https://github.com/copier-org/copier) templates in `dotfiles/blueprints/`.
-
-```sh
-j sync init       # Scaffold a project (auto-detects Go/TypeScript)
-j sync            # Pull template updates into current project
-j sync diff       # Preview changes
-j sync --all      # Update all projects in ~/Developer
-```
-
-Templates generate: `.editorconfig`, `.gitignore`, `LICENSE`, CI workflows, Docker/deploy configs, and Claude Code skill files — conditional on language and project type.
-
 ### `j run`
 
 ```sh
@@ -253,9 +240,8 @@ src/
     ├── domain/               # Version parsing, status loading, skills
     └── presentation/         # TUI views, components, theme
 dotfiles/
-├── applications/             # App configs (ghostty, tmux, zed, zsh)
-└── blueprints/               # Copier project templates
-tests/e2e/                    # End-to-end + blueprint snapshot tests
+└── applications/             # App configs (ghostty, tmux, zed, zsh)
+tests/e2e/                    # End-to-end tests
 ```
 
 ## License

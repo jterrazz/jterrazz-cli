@@ -243,16 +243,6 @@ var Tools = []Tool{
 		VersionFn:    tool.VersionFromCmd("ansible", []string{"--version"}, tool.ParseAnsibleVersion),
 	},
 	{
-		Name:         "copier",
-		Description:  "Project template engine with update support",
-		Command:      "copier",
-		Formula:      "copier",
-		Method:       InstallBrewFormula,
-		Category:     CategoryDeploy,
-		Dependencies: []string{"homebrew"},
-		VersionFn:    tool.VersionFromCmd("copier", []string{"--version"}, tool.TrimVersion),
-	},
-	{
 		Name:         "eas",
 		Command:      "eas",
 		Formula:      "eas-cli",

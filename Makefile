@@ -83,7 +83,7 @@ check: ## Verify installation
 test: ## Run Go unit tests
 	@go test ./src/...
 
-test-e2e: ## Run end-to-end tests (requires npm + copier)
+test-e2e: ## Run end-to-end tests (requires npm)
 	@npm install --silent
 	@J_FORCE_REBUILD=1 npx vitest --run
 
