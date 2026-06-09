@@ -54,17 +54,17 @@
   },
   "base_keymap": "VSCode",
   "icon_theme": {
-    "mode": "system",
-    "light": "Bearded Icon Theme",
+    "mode": "light",
+    "light": "Base Charmed Icons",
     "dark": "Base Charmed Icons"
   },
   "tab_size": 4,
   "ui_font_size": 15.4,
   "buffer_font_size": 13,
   "theme": {
-    "mode": "system",
-    "light": "Catppuccin Latte (Blur) [Heavy]",
-    "dark": "Catppuccin Espresso (Blur) [Heavy]"
+    "mode": "light",
+    "light": "Polar",
+    "dark": "Sequoia Moonlight"
   },
   "auto_install_extensions": {
     "ansible": true,
@@ -96,6 +96,9 @@
     "zig": true
   },
   "agent_servers": {
+    "opencode": {
+      "type": "registry"
+    },
     "codex-acp": {
       "type": "registry"
     },
