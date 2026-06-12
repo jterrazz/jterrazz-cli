@@ -26,6 +26,7 @@
   //   },
   //   "model_parameters": []
   // },
+  "semantic_tokens": "combined",
   "outline_panel": {
     "dock": "right"
   },
@@ -64,7 +65,7 @@
   "theme": {
     "mode": "dark",
     "light": "Polar",
-    "dark": "Sequoia Moonlight"
+    "dark": "Catppuccin Mocha (Blur) [Light]"
   },
   "theme_overrides": {
     "Polar": {
